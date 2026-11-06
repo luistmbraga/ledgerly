@@ -1,0 +1,69 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1793698440679,
+      "tag": "0000_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793699588300,
+      "tag": "0001_assets_net_worth",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793703586906,
+      "tag": "0002_categories_expenses_income",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793705576927,
+      "tag": "0003_invoices",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793709751652,
+      "tag": "0004_invoice_link_set_null",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793729967027,
+      "tag": "0005_goals",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793801506124,
+      "tag": "0006_personality",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793811201951,
+      "tag": "0007_ai_results",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793817493147,
+      "tag": "0008_dizzy_silver_samurai",
+      "breakpoints": true
+    }
+  ]
+}

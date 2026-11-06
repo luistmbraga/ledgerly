@@ -1,0 +1,99 @@
+import { eq } from "drizzle-orm";
+import {
+  computeEmergencyFund,
+  computeEssentialMonthlyAverage,
+  type ContributingAsset,
+  type EmergencyFundResult,
+  type EssentialSpendSource,
+} from "@/domain/emergency-fund";
+import { db } from "@/db/client";
+import { listAssets } from "@/db/repositories/assets";
+import { listCategories } from "@/db/repositories/categories";
+import { listExpenses } from "@/db/repositories/expenses";
+import { listIncomes } from "@/db/repositories/incomes";
+import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
+import { settings } from "@/db/schema";
+
+export type EmergencyFundAssetLine = ContributingAsset & {
+  name: string;
+};
+
+export type EmergencyFundView = EmergencyFundResult & {
+  currency: string;
+  asOfDate: string;
+  essentialSpendSource: EssentialSpendSource;
+  computedEssentialMonthlyAverageCents: number;
+  assets: EmergencyFundAssetLine[];
+};
+
+function todayUtcDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function readSettings() {
+  return db.select().from(settings).where(eq(settings.id, 1)).get();
+}
+
+export function getEmergencyFund(asOfDate = todayUtcDate()): EmergencyFundView {
+  const row = readSettings();
+  const targetMonths = row?.emergencyFundTargetMonths ?? 6;
+  const currency = row?.displayCurrency ?? "EUR";
+  const essential = computeEssentialMonthlyAverage(
+    listExpenses().map((expense) => ({
+      amountCents: expense.amountCents,
+      occurredOn: expense.occurredOn,
+      categoryId: expense.categoryId,
+    })),
+    listCategories("expense").map((category) => ({
+      id: category.id,
+      isEssential: category.isEssential,
+    })),
+    {
+      emergencyFundTargetMonths: targetMonths,
+      essentialMonthlySpendOverrideCents:
+        row?.essentialMonthlySpendOverrideCents ?? null,
+    },
+    asOfDate,
+  );
+
+  const assetRows = listAssets();
+  const fund = computeEmergencyFund({
+    essentialMonthlyAverageCents: essential.essentialMonthlyAverageCents,
+    targetMonths,
+    assets: assetRows.map((asset) => ({
+      id: asset.id,
+      isLiquid: asset.isLiquid,
+      snapshots: listSnapshotsForAsset(asset.id).map((snapshot) => ({
+        id: snapshot.id,
+        recordedOn: snapshot.recordedOn,
+        amountCents: snapshot.amountCents,
+      })),
+    })),
+    incomes: listIncomes().map((income) => ({
+      amountCents: income.amountCents,
+      occurredOn: income.occurredOn,
+    })),
+    expenses: listExpenses().map((expense) => ({
+      amountCents: expense.amountCents,
+      occurredOn: expense.occurredOn,
+    })),
+    asOfDate,
+  });
+
+  const names = new Map(assetRows.map((asset) => [asset.id, asset.name]));
+  const assets = fund.contributingAssets
+    .map((asset) => ({
+      ...asset,
+      name: names.get(asset.id) ?? "Asset",
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+
+  return {
+    ...fund,
+    currency,
+    asOfDate,
+    essentialSpendSource: essential.source,
+    computedEssentialMonthlyAverageCents: essential.computedAverageCents,
+    assets,
+  };
+}
