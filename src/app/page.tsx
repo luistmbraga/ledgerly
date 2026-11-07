@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ASSET_TYPES } from "@/domain/net-worth";
 import { formatMoney } from "@/lib/money";
 import { formatRatio } from "@/lib/percent";
@@ -20,10 +21,6 @@ export default async function DashboardPage() {
   const summary = getDashboardSummary();
   const fund = getEmergencyFund(asOfDate);
   const goals = loadGoals(asOfDate);
-  const narrated = await narrateDashboardTips(asOfDate, { skipAi: true });
-  const tips = narrated.tips;
-  const tipSource = narrated.source;
-  const tipRefusal = narrated.refusalReason;
   const { netWorth, currency } = summary;
   const hasAssets = summary.assetCount > 0;
   const funded = fund.targetCents > 0 && fund.gapCents === 0;
@@ -89,7 +86,9 @@ export default async function DashboardPage() {
         currency={currency}
       />
 
-      <TipsPanel tips={tips} source={tipSource} refusalReason={tipRefusal} />
+      <Suspense fallback={<TipsSkeleton />}>
+        <TipsPanelLoader asOfDate={asOfDate} />
+      </Suspense>
 
       {hasAssets ? (
         <div className="mt-6 flex flex-col gap-8">
@@ -167,6 +166,26 @@ export default async function DashboardPage() {
         </div>
       )}
     </div>
+  );
+}
+
+async function TipsPanelLoader({ asOfDate }: { asOfDate: string }) {
+  const narrated = await narrateDashboardTips(asOfDate, { skipAi: true });
+  return (
+    <TipsPanel
+      tips={narrated.tips}
+      source={narrated.source}
+      refusalReason={narrated.refusalReason}
+    />
+  );
+}
+
+function TipsSkeleton() {
+  return (
+    <section className="mt-6 animate-pulse rounded-md border border-stone-200 px-4 py-3">
+      <div className="h-4 w-16 rounded bg-stone-200" />
+      <div className="mt-3 h-12 rounded bg-stone-100" />
+    </section>
   );
 }
 

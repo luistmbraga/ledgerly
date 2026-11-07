@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import type { GoalFeasibility } from "@/domain/goals";
 import { ConfirmDelete } from "@/app/assets/confirm-delete";
 import { getGoal } from "@/db/repositories/goals";
 import { centsToDecimalInput, formatMoney } from "@/lib/money";
@@ -7,7 +9,7 @@ import { todayUtc } from "@/lib/dates";
 import { deleteGoalAction, updateGoalAction } from "../actions";
 import { BucketBadge, StatusChip } from "../goal-bits";
 import { GoalForm, percentDefault } from "../goal-form";
-import { explainGoal } from "@/ai/tasks/goal-explain";
+import { explainGoal, type GoalExplainRequest } from "@/ai/tasks/goal-explain";
 import { explainGoalAction } from "@/app/ai-actions";
 import { formatIsoDate, goalTemplateExplanation } from "../labels";
 import { loadGoals } from "../load";
@@ -38,31 +40,23 @@ export default async function GoalDetailPage({
   if (!view) notFound();
   const { feasibility } = view;
   const saved = query.saved ? SAVED[query.saved] : undefined;
-  const explained = await explainGoal(
-    {
-      currency: board.currency,
-      avgMonthlySurplusCents: board.avgMonthlySurplusCents,
-      goal: {
-        id: goal.id,
-        name: goal.name,
-        bucket: feasibility.bucket,
-        targetAmountCents: goal.targetAmountCents,
-        targetDate: goal.targetDate,
-        setAsideCents: goal.setAsideCents,
-        remainingCents: feasibility.remainingCents,
-        requiredMonthlyCents: feasibility.requiredMonthlyCents,
-        status: feasibility.status,
-        plannedMonthlyCents: goal.plannedMonthlyCents,
-        expectedAnnualReturnBps: goal.expectedAnnualReturnBps,
-      },
+  const explainRequest: GoalExplainRequest = {
+    currency: board.currency,
+    avgMonthlySurplusCents: board.avgMonthlySurplusCents,
+    goal: {
+      id: goal.id,
+      name: goal.name,
+      bucket: feasibility.bucket,
+      targetAmountCents: goal.targetAmountCents,
+      targetDate: goal.targetDate,
+      setAsideCents: goal.setAsideCents,
+      remainingCents: feasibility.remainingCents,
+      requiredMonthlyCents: feasibility.requiredMonthlyCents,
+      status: feasibility.status,
+      plannedMonthlyCents: goal.plannedMonthlyCents,
+      expectedAnnualReturnBps: goal.expectedAnnualReturnBps,
     },
-    { skipAi: true },
-  );
-  const explanationBadge = explained
-    ? explained.source === "fallback"
-      ? "Template"
-      : "AI"
-    : "Template";
+  };
   const plannedLabel =
     goal.plannedMonthlyCents === null
       ? "Not set"
@@ -141,43 +135,15 @@ export default async function GoalDetailPage({
           </p>
         </section>
 
-        <section className="max-w-2xl">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">Explanation</h2>
-            <form action={explainGoalAction}>
-              <input type="hidden" name="goalId" value={goal.id} />
-              <button
-                type="submit"
-                className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-              >
-                Explain
-              </button>
-            </form>
-          </div>
-          {explained?.refusalReason ? (
-            <p className="mt-2 text-sm text-stone-700">{explained.refusalReason}</p>
-          ) : null}
-          <p className="mt-2 text-sm text-stone-700">
-            {explained
-              ? explained.output.summary
-              : goalTemplateExplanation({
-                  status: feasibility.status,
-                  remainingCents: feasibility.remainingCents,
-                  hasPlannedMonthly: goal.plannedMonthlyCents !== null,
-                  hasExpectedReturn: goal.expectedAnnualReturnBps !== null,
-                })}
-          </p>
-          {explained && explained.output.steps.length > 0 ? (
-            <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-stone-700">
-              {explained.output.steps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-          ) : null}
-          <p className="mt-2 text-xs font-medium uppercase tracking-wide text-stone-500">
-            {explanationBadge}
-          </p>
-        </section>
+        <Suspense fallback={<ExplanationSkeleton goalId={goal.id} />}>
+          <GoalExplanationSection
+            goalId={goal.id}
+            request={explainRequest}
+            feasibility={feasibility}
+            plannedMonthlyCents={goal.plannedMonthlyCents}
+            expectedAnnualReturnBps={goal.expectedAnnualReturnBps}
+          />
+        </Suspense>
 
         <section className="max-w-xl border-t border-stone-200 pt-6">
           <h2 className="text-lg font-semibold">Edit goal</h2>
@@ -210,5 +176,87 @@ export default async function GoalDetailPage({
         />
       </div>
     </div>
+  );
+}
+
+async function GoalExplanationSection({
+  goalId,
+  request,
+  feasibility,
+  plannedMonthlyCents,
+  expectedAnnualReturnBps,
+}: {
+  goalId: number;
+  request: GoalExplainRequest;
+  feasibility: GoalFeasibility;
+  plannedMonthlyCents: number | null;
+  expectedAnnualReturnBps: number | null;
+}) {
+  const explained = await explainGoal(request, { skipAi: true });
+  const badge = explained
+    ? explained.source === "fallback"
+      ? "Template"
+      : "AI"
+    : "Template";
+  return (
+    <section className="max-w-2xl">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Explanation</h2>
+        <form action={explainGoalAction}>
+          <input type="hidden" name="goalId" value={goalId} />
+          <button
+            type="submit"
+            className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+          >
+            Explain
+          </button>
+        </form>
+      </div>
+      {explained?.refusalReason ? (
+        <p className="mt-2 text-sm text-stone-700">{explained.refusalReason}</p>
+      ) : null}
+      <p className="mt-2 text-sm text-stone-700">
+        {explained
+          ? explained.output.summary
+          : goalTemplateExplanation({
+              status: feasibility.status,
+              remainingCents: feasibility.remainingCents,
+              hasPlannedMonthly: plannedMonthlyCents !== null,
+              hasExpectedReturn: expectedAnnualReturnBps !== null,
+            })}
+      </p>
+      {explained && explained.output.steps.length > 0 ? (
+        <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-stone-700">
+          {explained.output.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      ) : null}
+      <p className="mt-2 text-xs font-medium uppercase tracking-wide text-stone-500">
+        {badge}
+      </p>
+    </section>
+  );
+}
+
+function ExplanationSkeleton({ goalId }: { goalId: number }) {
+  return (
+    <section className="max-w-2xl animate-pulse">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="h-6 w-28 rounded bg-stone-200" />
+        <form action={explainGoalAction}>
+          <input type="hidden" name="goalId" value={goalId} />
+          <button
+            type="submit"
+            disabled
+            className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-400"
+          >
+            Explain
+          </button>
+        </form>
+      </div>
+      <div className="mt-3 h-4 w-full rounded bg-stone-100" />
+      <div className="mt-2 h-4 w-3/4 rounded bg-stone-100" />
+    </section>
   );
 }
