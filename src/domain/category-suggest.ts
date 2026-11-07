@@ -1,3 +1,5 @@
+import { isoDateToDayNumber } from "../lib/dates";
+
 export type SuggestCategory = {
   id: number;
   name: string;
@@ -27,22 +29,6 @@ const KEYWORDS: Record<string, readonly string[]> = {
   Education: ["tuition", "course", "school"],
 };
 
-function isoDayNumber(isoDate: string): number | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
-    return null;
-  }
-  return Math.floor(date.getTime() / 86_400_000);
-}
 
 export function wordsInNote(note: string): string[] {
   return note.toLowerCase().match(/[a-z0-9]+/g) ?? [];
@@ -89,13 +75,13 @@ function frequentCategory(
   categories: readonly SuggestCategory[],
   asOf: string,
 ): SuggestCategory | undefined {
-  const asOfDay = isoDayNumber(asOf);
+  const asOfDay = isoDateToDayNumber(asOf);
   if (asOfDay === null) return undefined;
   const known = new Set(categories.map((category) => category.id));
   const counts = new Map<number, number>();
   for (const expense of expenses) {
     if (expense.categoryId === null || !known.has(expense.categoryId)) continue;
-    const day = isoDayNumber(expense.occurredOn);
+    const day = isoDateToDayNumber(expense.occurredOn);
     if (day === null) continue;
     const age = asOfDay - day;
     if (age < 0 || age > 90) continue;
@@ -154,12 +140,12 @@ export function recentCategoryLabels(
   expenses: readonly SuggestExpense[],
   asOf: string,
 ): RecentLabel[] {
-  const asOfDay = isoDayNumber(asOf);
+  const asOfDay = isoDateToDayNumber(asOf);
   if (asOfDay === null) return [];
   const counts = new Map<string, RecentLabel>();
   for (const expense of expenses) {
     if (expense.categoryId === null || !expense.note) continue;
-    const day = isoDayNumber(expense.occurredOn);
+    const day = isoDateToDayNumber(expense.occurredOn);
     if (day === null) continue;
     const age = asOfDay - day;
     if (age < 0 || age > 90) continue;

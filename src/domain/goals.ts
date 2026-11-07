@@ -1,3 +1,5 @@
+import { fullMonthsBetween } from "../lib/dates";
+
 export type HorizonBucket = "short" | "mid" | "long";
 
 export type GoalStatus = "on_track" | "tight" | "shortfall";
@@ -26,32 +28,9 @@ export type GoalFeasibility = {
   comparedMonthlyCents: number;
 };
 
-function parseIsoDate(value: string): { year: number; month: number; day: number } {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) {
-    throw new Error(`Invalid date: ${value}`);
-  }
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
-    throw new Error(`Invalid date: ${value}`);
-  }
-  return { year, month, day };
-}
-
 /** Full months from `asOfDate` to `targetDate`. A partial final month does not count. */
 export function fullMonthsUntil(asOfDate: string, targetDate: string): number {
-  const start = parseIsoDate(asOfDate);
-  const end = parseIsoDate(targetDate);
-  let months = (end.year - start.year) * 12 + (end.month - start.month);
-  if (end.day < start.day) months -= 1;
-  return months;
+  return fullMonthsBetween(asOfDate, targetDate);
 }
 
 /** Horizon from months until the target date. Short under 12, mid 12–59, long 60 or more. */

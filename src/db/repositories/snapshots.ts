@@ -1,4 +1,5 @@
 import { desc, eq } from "drizzle-orm";
+import { isValidIsoDate } from "../../lib/dates";
 import { db } from "../client";
 import { assets, liabilities, valueSnapshots, type ValueSnapshotRow } from "../schema";
 
@@ -16,16 +17,7 @@ function invalid(message: string): never {
   throw error;
 }
 
-export function isValidIsoDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  );
-}
+export { isValidIsoDate } from "../../lib/dates";
 
 function assertSnapshotInput(input: SnapshotInput): SnapshotInput {
   if (!isValidIsoDate(input.recordedOn)) {
