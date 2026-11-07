@@ -142,7 +142,23 @@ describe("fullMonthsBetween", () => {
   });
 
   it("does not count a partial final month", () => {
-    expect(fullMonthsBetween("2026-01-31", "2026-02-28")).toBe(0);
+    expect(fullMonthsBetween("2026-01-15", "2026-02-14")).toBe(0);
+  });
+
+  it("month-end rule: Jan 31 to Feb 28 is 1 (Feb 28 is last day of Feb)", () => {
+    expect(fullMonthsBetween("2026-01-31", "2026-02-28")).toBe(1);
+  });
+
+  it("month-end rule: Mar 31 to Apr 30 is 1 (Apr 30 is last day of Apr)", () => {
+    expect(fullMonthsBetween("2026-03-31", "2026-04-30")).toBe(1);
+  });
+
+  it("month-end rule: Jan 31 to Feb 28 in a leap year (Feb 29 is last day)", () => {
+    expect(fullMonthsBetween("2024-01-31", "2024-02-29")).toBe(1);
+  });
+
+  it("non-month-end: Jan 31 to Feb 27 is still 0", () => {
+    expect(fullMonthsBetween("2026-01-31", "2026-02-27")).toBe(0);
   });
 
   it("existing test: Jan 31 to Jul 30 is 5", () => {

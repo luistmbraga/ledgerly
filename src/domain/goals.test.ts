@@ -43,6 +43,22 @@ describe("fullMonthsUntil and horizon buckets", () => {
   it("drops a partial month when the target day is earlier", () => {
     expect(fullMonthsUntil("2026-01-31", "2026-07-30")).toBe(5);
   });
+
+  it("month-end rule: Jan 31 → Feb 28 counts as 1 full month", () => {
+    expect(fullMonthsUntil("2026-01-31", "2026-02-28")).toBe(1);
+  });
+
+  it("month-end rule: Mar 31 → Apr 30 counts as 1 full month", () => {
+    expect(fullMonthsUntil("2026-03-31", "2026-04-30")).toBe(1);
+  });
+
+  it("Jan 15 → Feb 15 is still 1 (day matches, no month-end needed)", () => {
+    expect(fullMonthsUntil("2026-01-15", "2026-02-15")).toBe(1);
+  });
+
+  it("Jan 31 → Feb 27 is 0 (Feb 27 is not month-end)", () => {
+    expect(fullMonthsUntil("2026-01-31", "2026-02-27")).toBe(0);
+  });
 });
 
 describe("computeGoalFeasibility", () => {

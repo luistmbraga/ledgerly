@@ -70,13 +70,18 @@ export function addMonths(isoDate: string, delta: number): string {
 
 /**
  * Returns the number of full calendar months from `from` to `to`.
- * A partial final month does not count.
+ * A partial final month does not count, except when `to` falls on the last day
+ * of its month and `from` has a higher day number — month-end is treated as
+ * equivalent to any day at or beyond the start day (e.g. Jan 31 → Feb 28 = 1).
  */
 export function fullMonthsBetween(from: string, to: string): number {
   const start = parseIsoDate(from);
   const end = parseIsoDate(to);
   let months = (end.year - start.year) * 12 + (end.month - start.month);
-  if (end.day < start.day) months -= 1;
+  if (end.day < start.day) {
+    const endIsMonthEnd = end.day === lastDayOfMonth(end.year, end.month);
+    if (!endIsMonthEnd) months -= 1;
+  }
   return months;
 }
 

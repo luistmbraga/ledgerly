@@ -161,6 +161,8 @@ Inputs: `setAsideCents`, `targetAmountCents`, `targetDate`, optional `expectedAn
 
 ```
 monthsRemaining = full months from asOfDate to targetDate (minimum 1 if target is same month)
+                  Month-end rule: if targetDate is the last day of its month and
+                  asOfDate.day > targetDate.day, count the month as full (e.g. Jan 31 → Feb 28 = 1).
 remainingCents = max(0, targetAmountCents - setAsideCents)
 ```
 
