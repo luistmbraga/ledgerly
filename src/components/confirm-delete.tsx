@@ -5,11 +5,12 @@ import { useRef } from "react";
 type ConfirmDeleteProps = {
   action: (formData: FormData) => void | Promise<void>;
   id: number;
-  dialogKey: string;
+  dialogKey?: string;
   hiddenFields?: Record<string, string>;
   title: string;
   body: string;
   triggerLabel: string;
+  size?: "default" | "sm";
 };
 
 export function ConfirmDelete({
@@ -20,16 +21,22 @@ export function ConfirmDelete({
   title,
   body,
   triggerLabel,
+  size = "default",
 }: ConfirmDeleteProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const titleId = `delete-title-${dialogKey}`;
+  const titleId = `delete-title-${dialogKey ?? id}`;
+
+  const triggerCn =
+    size === "sm"
+      ? "rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2"
+      : "w-fit rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2";
 
   return (
     <>
       <button
         type="button"
         onClick={() => dialogRef.current?.showModal()}
-        className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2"
+        className={triggerCn}
       >
         {triggerLabel}
       </button>
@@ -44,6 +51,14 @@ export function ConfirmDelete({
           </h2>
           <p className="text-sm text-stone-700">{body}</p>
           <div className="flex gap-2">
+            <button
+              type="button"
+              autoFocus
+              onClick={() => dialogRef.current?.close()}
+              className="rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+            >
+              Cancel
+            </button>
             <form action={action}>
               <input type="hidden" name="id" value={id} />
               {hiddenFields
@@ -58,13 +73,6 @@ export function ConfirmDelete({
                 Delete
               </button>
             </form>
-            <button
-              type="button"
-              onClick={() => dialogRef.current?.close()}
-              className="rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-            >
-              Cancel
-            </button>
           </div>
         </div>
       </dialog>

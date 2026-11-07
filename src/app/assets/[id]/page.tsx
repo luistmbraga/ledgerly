@@ -16,7 +16,8 @@ import {
   updateAssetSnapshotAction,
 } from "../actions";
 import { AssetForm } from "../asset-form";
-import { ConfirmDelete } from "../confirm-delete";
+import { ConfirmDelete } from "@/components/confirm-delete";
+import { Flash } from "@/components/flash";
 import {
   ASSET_TYPE_DESCRIPTIONS,
   ASSET_TYPE_LABELS,
@@ -78,22 +79,7 @@ export default async function AssetDetailPage({
       </header>
 
       <div className="mt-6 flex flex-col gap-8">
-        {saved ? (
-          <p
-            role="status"
-            className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900"
-          >
-            {saved}
-          </p>
-        ) : null}
-        {query.error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-          >
-            {query.error}
-          </p>
-        ) : null}
+        <Flash error={query.error} message={saved} />
 
         <section>
           <h2 className="text-lg font-semibold">Current value</h2>
@@ -194,9 +180,11 @@ export default async function AssetDetailPage({
                           <ConfirmDelete
                             action={deleteAssetSnapshotAction}
                             id={snapshot.id}
+                            dialogKey={`asset-snapshot-${snapshot.id}`}
                             title="Delete this snapshot?"
                             body="Removes the snapshot from history. This cannot be undone."
                             triggerLabel="Delete"
+                            size="sm"
                           />
                         </div>
                       </td>
@@ -294,6 +282,7 @@ export default async function AssetDetailPage({
             <ConfirmDelete
               action={deleteAssetAction}
               id={asset.id}
+              dialogKey={`asset-${asset.id}`}
               title="Delete asset?"
               body="This removes the asset and all of its value snapshots."
               triggerLabel="Delete asset"

@@ -4,7 +4,7 @@ import {
   deleteCategoryAction,
   updateCategoryAction,
 } from "./actions";
-import { ConfirmDelete } from "./confirm-delete";
+import { ConfirmDelete } from "@/components/confirm-delete";
 
 type CategoryPanelProps = {
   kind: CategoryKind;
@@ -87,6 +87,7 @@ export function CategoryPanel({ kind, categories }: CategoryPanelProps) {
                         title={`Delete ${category.name}?`}
                         body="This removes the category. Categories that already have expenses or income stay in place."
                         triggerLabel="Delete"
+                        size="sm"
                       />
                     </div>
                   </td>

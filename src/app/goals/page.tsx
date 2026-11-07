@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/money";
 import { todayUtc } from "@/lib/dates";
+import { Flash } from "@/components/flash";
 import { createGoalAction } from "./actions";
 import { BucketBadge, ProgressBar, StatusChip } from "./goal-bits";
 import { GoalForm } from "./goal-form";
@@ -86,25 +87,3 @@ export default async function GoalsPage({
   );
 }
 
-function Flash({ error, message }: { error?: string; message?: string }) {
-  return (
-    <>
-      {message ? (
-        <p
-          role="status"
-          className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900"
-        >
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-        >
-          {error}
-        </p>
-      ) : null}
-    </>
-  );
-}

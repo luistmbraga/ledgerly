@@ -114,6 +114,14 @@ export function PersonalitySummary({
               quiz again.
             </p>
             <div className="flex gap-2">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => dialogRef.current?.close()}
+                className="rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+              >
+                Cancel
+              </button>
               <form action={retakeAction}>
                 <button
                   type="submit"
@@ -122,13 +130,6 @@ export function PersonalitySummary({
                   Replace profile
                 </button>
               </form>
-              <button
-                type="button"
-                onClick={() => dialogRef.current?.close()}
-                className="rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-              >
-                Cancel
-              </button>
             </div>
           </div>
         </dialog>

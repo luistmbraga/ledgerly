@@ -8,7 +8,8 @@ import { listSnapshotsForLiability } from "@/db/repositories/snapshots";
 import { centsToDecimalInput, formatMoney } from "@/lib/money";
 import { todayUtc } from "@/lib/dates";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
-import { ConfirmDelete } from "../../assets/confirm-delete";
+import { ConfirmDelete } from "@/components/confirm-delete";
+import { Flash } from "@/components/flash";
 import { formatIsoDate } from "../../assets/labels";
 import {
   addLiabilitySnapshotAction,
@@ -73,22 +74,7 @@ export default async function LiabilityDetailPage({
       </header>
 
       <div className="mt-6 flex flex-col gap-8">
-        {saved ? (
-          <p
-            role="status"
-            className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900"
-          >
-            {saved}
-          </p>
-        ) : null}
-        {query.error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-          >
-            {query.error}
-          </p>
-        ) : null}
+        <Flash error={query.error} message={saved} />
 
         <section>
           <h2 className="text-lg font-semibold">Current amount owed</h2>
@@ -197,9 +183,11 @@ export default async function LiabilityDetailPage({
                           <ConfirmDelete
                             action={deleteLiabilitySnapshotAction}
                             id={snapshot.id}
+                            dialogKey={`liability-snapshot-${snapshot.id}`}
                             title="Delete this snapshot?"
                             body="Removes the snapshot from history. This cannot be undone."
                             triggerLabel="Delete"
+                            size="sm"
                           />
                         </div>
                       </td>
@@ -337,6 +325,7 @@ export default async function LiabilityDetailPage({
             <ConfirmDelete
               action={deleteLiabilityAction}
               id={liability.id}
+              dialogKey={`liability-${liability.id}`}
               title="Delete liability?"
               body="This removes the liability and all of its value snapshots."
               triggerLabel="Delete liability"

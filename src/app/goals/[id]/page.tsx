@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import type { GoalFeasibility } from "@/domain/goals";
-import { ConfirmDelete } from "@/app/assets/confirm-delete";
+import { ConfirmDelete } from "@/components/confirm-delete";
+import { Flash } from "@/components/flash";
 import { getGoal } from "@/db/repositories/goals";
 import { centsToDecimalInput, formatMoney } from "@/lib/money";
 import { todayUtc } from "@/lib/dates";
@@ -85,22 +86,7 @@ export default async function GoalDetailPage({
       </header>
 
       <div className="mt-6 flex flex-col gap-8">
-        {saved ? (
-          <p
-            role="status"
-            className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900"
-          >
-            {saved}
-          </p>
-        ) : null}
-        {query.error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-          >
-            {query.error}
-          </p>
-        ) : null}
+        <Flash error={query.error} message={saved} />
 
         <section className="flex flex-col gap-2">
           <h2 className="text-sm font-medium text-stone-600">Required monthly</h2>
@@ -170,6 +156,7 @@ export default async function GoalDetailPage({
         <ConfirmDelete
           action={deleteGoalAction}
           id={goal.id}
+          dialogKey={`goal-${goal.id}`}
           title="Delete goal"
           body="This removes the goal. It does not change asset balances."
           triggerLabel="Delete goal"

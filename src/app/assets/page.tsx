@@ -3,6 +3,7 @@ import { listAssets } from "@/db/repositories/assets";
 import { getLatestSnapshotsByAssetIds } from "@/db/repositories/snapshots";
 import { formatMoney } from "@/lib/money";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
+import { Flash } from "@/components/flash";
 import { createAssetAction } from "./actions";
 import { AssetForm } from "./asset-form";
 import { ASSET_TYPE_LABELS, formatIsoDate } from "./labels";
@@ -98,28 +99,5 @@ export default async function AssetsPage({
         </section>
       </div>
     </div>
-  );
-}
-
-function Flash({ error, message }: { error?: string; message?: string }) {
-  return (
-    <>
-      {message ? (
-        <p
-          role="status"
-          className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900"
-        >
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-        >
-          {error}
-        </p>
-      ) : null}
-    </>
   );
 }

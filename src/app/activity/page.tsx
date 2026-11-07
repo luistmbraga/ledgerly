@@ -20,7 +20,8 @@ import {
   updateIncomeAction,
 } from "./actions";
 import { CategoryPanel } from "./category-panel";
-import { ConfirmDelete } from "./confirm-delete";
+import { ConfirmDelete } from "@/components/confirm-delete";
+import { Flash } from "@/components/flash";
 import { JournalForm } from "./journal-form";
 
 export const dynamic = "force-dynamic";
@@ -248,6 +249,7 @@ function ExpenseTab({
                               : "This removes the expense from Activity. If this entry still owns the latest cash snapshot, that balance is reversed."
                           }
                           triggerLabel="Delete"
+                          size="sm"
                         />
                       </div>
                     </td>
@@ -385,6 +387,7 @@ function IncomeTab({
                               : "This removes the income from Activity. If this entry still owns the latest cash snapshot, that balance is reversed."
                           }
                           triggerLabel="Delete"
+                          size="sm"
                         />
                       </div>
                     </td>
@@ -435,25 +438,3 @@ function IncomeTab({
   );
 }
 
-function Flash({ error, message }: { error?: string; message?: string }) {
-  return (
-    <>
-      {message ? (
-        <p
-          role="status"
-          className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900"
-        >
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-        >
-          {error}
-        </p>
-      ) : null}
-    </>
-  );
-}

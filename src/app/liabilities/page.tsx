@@ -4,6 +4,7 @@ import { listLiabilities } from "@/db/repositories/liabilities";
 import { getLatestSnapshotsByLiabilityIds } from "@/db/repositories/snapshots";
 import { formatMoney } from "@/lib/money";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
+import { Flash } from "@/components/flash";
 import { createLiabilityAction } from "./actions";
 import { LIABILITY_TYPE_LABELS } from "./labels";
 import { formatIsoDate } from "../assets/labels";
@@ -47,22 +48,7 @@ export default async function LiabilitiesPage({
       </header>
 
       <div className="mt-6 flex flex-col gap-8">
-        {saved ? (
-          <p
-            role="status"
-            className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900"
-          >
-            {saved}
-          </p>
-        ) : null}
-        {params.error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-          >
-            {params.error}
-          </p>
-        ) : null}
+        <Flash error={params.error} message={saved} />
 
         {rows.length === 0 ? (
           <p className="text-sm text-stone-700">
