@@ -1,19 +1,26 @@
 import { desc, eq } from "drizzle-orm";
 import { isValidIsoDate } from "./snapshots";
 import { getCategory } from "./categories";
+import {
+  createCashLink,
+  deleteCashLink,
+  updateCashLink,
+} from "./cash-link";
 import { db } from "../client";
-import { categories, expenses, type ExpenseRow } from "../schema";
+import { assets, categories, expenses, type ExpenseRow } from "../schema";
 
 export type ExpenseRecord = ExpenseRow;
 
 export type ExpenseWithCategory = ExpenseRecord & {
   categoryName: string | null;
+  assetName: string | null;
 };
 
 export type ExpenseInput = {
   amountCents: number;
   occurredOn: string;
   categoryId: number | null;
+  assetId: number | null;
   note: string | null;
 };
 
@@ -49,13 +56,17 @@ export function listExpenses(): ExpenseWithCategory[] {
       amountCents: expenses.amountCents,
       occurredOn: expenses.occurredOn,
       categoryId: expenses.categoryId,
+      assetId: expenses.assetId,
+      linkedSnapshotId: expenses.linkedSnapshotId,
       note: expenses.note,
       createdAt: expenses.createdAt,
       updatedAt: expenses.updatedAt,
       categoryName: categories.name,
+      assetName: assets.name,
     })
     .from(expenses)
     .leftJoin(categories, eq(expenses.categoryId, categories.id))
+    .leftJoin(assets, eq(expenses.assetId, assets.id))
     .orderBy(desc(expenses.occurredOn), desc(expenses.id))
     .all();
 }
@@ -67,42 +78,81 @@ export function getExpense(id: number): ExpenseRecord | undefined {
 export function createExpense(input: ExpenseInput): ExpenseRecord {
   const value = assertExpenseInput(input);
   const now = new Date().toISOString();
-  return db
-    .insert(expenses)
-    .values({
-      amountCents: value.amountCents,
+  return db.transaction((tx) => {
+    const link = createCashLink(tx, {
+      assetId: value.assetId,
       occurredOn: value.occurredOn,
-      categoryId: value.categoryId,
-      note: value.note,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning()
-    .get();
+      amountCents: value.amountCents,
+      direction: "expense",
+    });
+    return tx
+      .insert(expenses)
+      .values({
+        amountCents: value.amountCents,
+        occurredOn: value.occurredOn,
+        categoryId: value.categoryId,
+        assetId: link.assetId,
+        linkedSnapshotId: link.linkedSnapshotId,
+        note: value.note,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning()
+      .get();
+  });
 }
 
 export function updateExpense(
   id: number,
   input: ExpenseInput,
 ): ExpenseRecord | undefined {
-  if (!getExpense(id)) return undefined;
+  const existing = getExpense(id);
+  if (!existing) return undefined;
   const value = assertExpenseInput(input);
-  return db
-    .update(expenses)
-    .set({
-      amountCents: value.amountCents,
-      occurredOn: value.occurredOn,
-      categoryId: value.categoryId,
-      note: value.note,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(expenses.id, id))
-    .returning()
-    .get();
+  return db.transaction((tx) => {
+    const link = updateCashLink(
+      tx,
+      {
+        assetId: existing.assetId,
+        linkedSnapshotId: existing.linkedSnapshotId,
+        amountCents: existing.amountCents,
+        occurredOn: existing.occurredOn,
+      },
+      {
+        assetId: value.assetId,
+        occurredOn: value.occurredOn,
+        amountCents: value.amountCents,
+        direction: "expense",
+      },
+    );
+    return tx
+      .update(expenses)
+      .set({
+        amountCents: value.amountCents,
+        occurredOn: value.occurredOn,
+        categoryId: value.categoryId,
+        assetId: link.assetId,
+        linkedSnapshotId: link.linkedSnapshotId,
+        note: value.note,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(expenses.id, id))
+      .returning()
+      .get();
+  });
 }
 
 export function deleteExpense(id: number): boolean {
-  if (!getExpense(id)) return false;
-  db.delete(expenses).where(eq(expenses.id, id)).run();
+  const existing = getExpense(id);
+  if (!existing) return false;
+  db.transaction((tx) => {
+    deleteCashLink(tx, {
+      assetId: existing.assetId,
+      linkedSnapshotId: existing.linkedSnapshotId,
+      amountCents: existing.amountCents,
+      occurredOn: existing.occurredOn,
+    });
+    tx.delete(expenses).where(eq(expenses.id, id)).run();
+  });
   return true;
 }

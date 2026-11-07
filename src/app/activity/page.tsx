@@ -1,8 +1,8 @@
 import Link from "next/link";
+import { listAssets } from "@/db/repositories/assets";
 import { listCategories } from "@/db/repositories/categories";
 import { listExpenses } from "@/db/repositories/expenses";
 import { listIncomes } from "@/db/repositories/incomes";
-import { isInvoiceStatus } from "@/db/repositories/invoices";
 import { centsToDecimalInput, formatMoney } from "@/lib/money";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
 import { formatIsoDate } from "../assets/labels";
@@ -16,7 +16,6 @@ import {
 } from "./actions";
 import { CategoryPanel } from "./category-panel";
 import { ConfirmDelete } from "./confirm-delete";
-import { InvoicesPanel } from "./invoices-panel";
 import { JournalForm } from "./journal-form";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +24,6 @@ export const runtime = "nodejs";
 const TABS = [
   { id: "expenses", label: "Expenses" },
   { id: "income", label: "Income" },
-  { id: "invoices", label: "Invoices" },
 ] as const;
 
 type Tab = (typeof TABS)[number]["id"];
@@ -40,13 +38,10 @@ const SAVED: Record<string, string> = {
   "category-created": "Category added.",
   "category-updated": "Category updated.",
   "category-deleted": "Category deleted.",
-  "invoice-created": "Invoice added.",
-  "invoice-paid": "Invoice marked paid.",
-  "invoice-cancelled": "Invoice cancelled.",
 };
 
 function parseTab(value: string | undefined): Tab {
-  if (value === "income" || value === "invoices") return value;
+  if (value === "income") return value;
   return "expenses";
 }
 
@@ -72,16 +67,11 @@ export default async function ActivityPage({
     error?: string;
     saved?: string;
     edit?: string;
-    invoiceStatus?: string;
   }>;
 }) {
   const params = await searchParams;
   const tab = parseTab(params.tab);
-  const editId = tab === "invoices" ? undefined : parseEditId(params.edit);
-  const invoiceStatus =
-    params.invoiceStatus && isInvoiceStatus(params.invoiceStatus)
-      ? params.invoiceStatus
-      : undefined;
+  const editId = parseEditId(params.edit);
   const currency = getDisplayCurrency();
   const saved = params.saved ? SAVED[params.saved] : undefined;
 
@@ -90,8 +80,8 @@ export default async function ActivityPage({
       <header className="border-b border-stone-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight">Activity</h1>
         <p className="mt-1 text-sm text-stone-600">
-          Log expenses, income, and invoices. Amounts are stored in cents and
-          do not change asset balances.
+          Log expenses and income. Optionally link a cash account to update that
+          balance with a snapshot.
         </p>
       </header>
 
@@ -123,12 +113,15 @@ export default async function ActivityPage({
         {tab === "income" ? (
           <IncomeTab currency={currency} editId={editId} />
         ) : null}
-        {tab === "invoices" ? (
-          <InvoicesPanel currency={currency} status={invoiceStatus} />
-        ) : null}
       </div>
     </div>
   );
+}
+
+function cashAccountOptions() {
+  return listAssets()
+    .filter((asset) => asset.type === "cash")
+    .map((asset) => ({ id: asset.id, name: asset.name }));
 }
 
 function ExpenseTab({
@@ -140,6 +133,7 @@ function ExpenseTab({
 }) {
   const rows = listExpenses();
   const categories = listCategories("expense");
+  const cashAccounts = cashAccountOptions();
   const editing = editId === undefined ? undefined : rows.find((row) => row.id === editId);
 
   return (
@@ -157,6 +151,7 @@ function ExpenseTab({
                 <th className="py-2 pr-4 font-medium">Date</th>
                 <th className="py-2 pr-4 font-medium">Category</th>
                 <th className="py-2 pr-4 font-medium">Amount</th>
+                <th className="py-2 pr-4 font-medium">Cash account</th>
                 <th className="py-2 pr-4 font-medium">Note</th>
                 <th className="py-2 font-medium">
                   <span className="sr-only">Actions</span>
@@ -184,6 +179,9 @@ function ExpenseTab({
                     <td className="py-3 pr-4 tabular-nums">
                       {formatMoney(row.amountCents, currency)}
                     </td>
+                    <td className="py-3 pr-4 text-stone-700">
+                      {row.assetName ?? "—"}
+                    </td>
                     <td className="py-3 pr-4 text-stone-700">{row.note ?? "—"}</td>
                     <td className="py-3">
                       <div className="flex flex-wrap gap-2">
@@ -198,7 +196,11 @@ function ExpenseTab({
                           id={row.id}
                           dialogKey={`expense-${row.id}`}
                           title="Delete this expense?"
-                          body="This removes the expense from Activity. Asset balances stay the same."
+                          body={
+                            row.assetId === null
+                              ? "This removes the expense from Activity. Asset balances stay the same."
+                              : "This removes the expense from Activity. If this entry still owns the latest cash snapshot, that balance is reversed."
+                          }
                           triggerLabel="Delete"
                         />
                       </div>
@@ -221,6 +223,7 @@ function ExpenseTab({
             idPrefix={editing ? `expense-${editing.id}` : "expense-new"}
             submitLabel={editing ? "Save expense" : "Add expense"}
             categories={categories}
+            cashAccounts={cashAccounts}
             cancelHref={editing ? "/activity?tab=expenses" : undefined}
             entryId={editing?.id}
             suggestExpenseId={editing?.id ?? null}
@@ -230,12 +233,14 @@ function ExpenseTab({
                     amount: centsToDecimalInput(editing.amountCents),
                     occurredOn: editing.occurredOn,
                     categoryId: editing.categoryId,
+                    assetId: editing.assetId,
                     note: editing.note ?? "",
                   }
                 : {
                     amount: "",
                     occurredOn: todayIso(),
                     categoryId: null,
+                    assetId: null,
                     note: "",
                   }
             }
@@ -257,6 +262,7 @@ function IncomeTab({
 }) {
   const rows = listIncomes();
   const categories = listCategories("income");
+  const cashAccounts = cashAccountOptions();
   const editing = editId === undefined ? undefined : rows.find((row) => row.id === editId);
 
   return (
@@ -274,6 +280,7 @@ function IncomeTab({
                 <th className="py-2 pr-4 font-medium">Date</th>
                 <th className="py-2 pr-4 font-medium">Category</th>
                 <th className="py-2 pr-4 font-medium">Amount</th>
+                <th className="py-2 pr-4 font-medium">Cash account</th>
                 <th className="py-2 pr-4 font-medium">Note</th>
                 <th className="py-2 font-medium">
                   <span className="sr-only">Actions</span>
@@ -290,6 +297,9 @@ function IncomeTab({
                   <td className="py-3 pr-4 tabular-nums">
                     {formatMoney(row.amountCents, currency)}
                   </td>
+                  <td className="py-3 pr-4 text-stone-700">
+                    {row.assetName ?? "—"}
+                  </td>
                   <td className="py-3 pr-4 text-stone-700">{row.note ?? "—"}</td>
                   <td className="py-3">
                     <div className="flex flex-wrap gap-2">
@@ -304,7 +314,11 @@ function IncomeTab({
                         id={row.id}
                         dialogKey={`income-${row.id}`}
                         title="Delete this income?"
-                        body="This removes the income from Activity. Asset balances stay the same."
+                        body={
+                          row.assetId === null
+                            ? "This removes the income from Activity. Asset balances stay the same."
+                            : "This removes the income from Activity. If this entry still owns the latest cash snapshot, that balance is reversed."
+                        }
                         triggerLabel="Delete"
                       />
                     </div>
@@ -326,6 +340,7 @@ function IncomeTab({
             idPrefix={editing ? `income-${editing.id}` : "income-new"}
             submitLabel={editing ? "Save income" : "Add income"}
             categories={categories}
+            cashAccounts={cashAccounts}
             cancelHref={editing ? "/activity?tab=income" : undefined}
             entryId={editing?.id}
             defaults={
@@ -334,12 +349,14 @@ function IncomeTab({
                     amount: centsToDecimalInput(editing.amountCents),
                     occurredOn: editing.occurredOn,
                     categoryId: editing.categoryId,
+                    assetId: editing.assetId,
                     note: editing.note ?? "",
                   }
                 : {
                     amount: "",
                     occurredOn: todayIso(),
                     categoryId: null,
+                    assetId: null,
                     note: "",
                   }
             }

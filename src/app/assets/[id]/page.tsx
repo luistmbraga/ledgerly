@@ -14,7 +14,11 @@ import {
 } from "../actions";
 import { AssetForm } from "../asset-form";
 import { ConfirmDelete } from "../confirm-delete";
-import { ASSET_TYPE_LABELS, formatIsoDate } from "../labels";
+import {
+  ASSET_TYPE_DESCRIPTIONS,
+  ASSET_TYPE_LABELS,
+  formatIsoDate,
+} from "../labels";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -55,6 +59,9 @@ export default async function AssetDetailPage({
         <h1 className="text-2xl font-semibold tracking-tight">{asset.name}</h1>
         <p className="mt-1 text-sm text-stone-600">
           {ASSET_TYPE_LABELS[asset.type]}
+        </p>
+        <p className="mt-1 text-sm text-stone-600">
+          {ASSET_TYPE_DESCRIPTIONS[asset.type]}
         </p>
       </header>
 
@@ -181,7 +188,7 @@ export default async function AssetDetailPage({
                 type: asset.type,
                 isLiquid: asset.isLiquid,
                 includeInAllocation: asset.includeInAllocation,
-                allocationBucket: asset.allocationBucket,
+                sleevePercents: asset.sleevePercents,
                 notes: asset.notes ?? "",
               }}
             />
