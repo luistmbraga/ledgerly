@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ConfirmDelete } from "@/app/assets/confirm-delete";
 import { getGoal } from "@/db/repositories/goals";
 import { centsToDecimalInput, formatMoney } from "@/lib/money";
+import { todayUtc } from "@/lib/dates";
 import { deleteGoalAction, updateGoalAction } from "../actions";
 import { BucketBadge, StatusChip } from "../goal-bits";
 import { GoalForm, percentDefault } from "../goal-form";
@@ -31,7 +32,7 @@ export default async function GoalDetailPage({
   const goal = getGoal(Number(rawId));
   if (!goal) notFound();
 
-  const board = loadGoals();
+  const board = loadGoals(todayUtc());
   const view = board.goals.find((item) => item.goal.id === goal.id);
   if (!view) notFound();
   const { feasibility } = view;

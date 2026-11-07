@@ -144,13 +144,13 @@ export type PropertyOrVehicleInMix = {
   type: "real_estate" | "vehicle";
 };
 
-export async function loadBriefing(deps?: TaskDeps): Promise<{
+export async function loadBriefing(asOfDate?: string, deps?: TaskDeps): Promise<{
   decision: BriefingDecision;
   currency: string;
   narration: TaskResult<BriefingOutput>;
   propertyOrVehiclesInMix: PropertyOrVehicleInMix[];
 } | null> {
-  const snapshot = loadFinancialSnapshot();
+  const snapshot = loadFinancialSnapshot(asOfDate);
   const profile = snapshot.investorProfile;
   if (!profile || !isPersonalityLabel(profile.label)) return null;
   const decision = buildBriefingDecision(

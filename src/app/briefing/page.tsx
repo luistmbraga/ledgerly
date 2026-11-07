@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { todayUtc } from "@/lib/dates";
 import { loadBriefing, type PropertyOrVehicleInMix } from "@/ai/tasks/briefing";
 import {
   ALLOCATION_BANDS,
@@ -31,7 +32,7 @@ const BAND_ORDER: readonly PersonalityLabel[] = [
 ];
 
 export default async function BriefingPage() {
-  const briefing = await loadBriefing();
+  const briefing = await loadBriefing(todayUtc());
   if (!briefing) redirect("/personality");
 
   const { decision, currency, narration, propertyOrVehiclesInMix } = briefing;

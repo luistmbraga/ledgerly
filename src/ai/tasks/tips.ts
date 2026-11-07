@@ -185,10 +185,10 @@ export type NarratedTip = {
   severity: FindingSeverity;
 };
 
-export async function narrateDashboardTips(deps?: TaskDeps): Promise<
+export async function narrateDashboardTips(asOfDate?: string, deps?: TaskDeps): Promise<
   TaskResult<TipsOutput> & { tips: NarratedTip[] }
 > {
-  const snapshot = loadFinancialSnapshot();
+  const snapshot = loadFinancialSnapshot(asOfDate);
   const result = await narrateTips(
     {
       currency: snapshot.currency,

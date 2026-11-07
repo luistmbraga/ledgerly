@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/money";
+import { todayUtc } from "@/lib/dates";
 import { createGoalAction } from "./actions";
 import { BucketBadge, ProgressBar, StatusChip } from "./goal-bits";
 import { GoalForm } from "./goal-form";
@@ -19,7 +20,7 @@ export default async function GoalsPage({
   searchParams: Promise<{ error?: string; saved?: string }>;
 }) {
   const params = await searchParams;
-  const board = loadGoals();
+  const board = loadGoals(todayUtc());
   const saved = params.saved ? SAVED[params.saved] : undefined;
 
   return (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ASSET_TYPES } from "@/domain/net-worth";
 import { formatMoney } from "@/lib/money";
 import { formatRatio } from "@/lib/percent";
+import { todayUtc } from "@/lib/dates";
 import { getDashboardSummary } from "@/services/dashboard-summary";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
 import { narrateDashboardTips } from "@/ai/tasks/tips";
@@ -19,14 +20,15 @@ export default async function DashboardPage({
   searchParams: Promise<{ tips?: string }>;
 }) {
   const params = await searchParams;
+  const asOfDate = todayUtc();
   const summary = getDashboardSummary();
-  const fund = getEmergencyFund();
-  const goals = loadGoals();
+  const fund = getEmergencyFund(asOfDate);
+  const goals = loadGoals(asOfDate);
   const refreshed = params.tips === "1";
-  const narrated = refreshed ? await narrateDashboardTips() : null;
+  const narrated = refreshed ? await narrateDashboardTips(asOfDate) : null;
   const tips = narrated
     ? narrated.tips
-    : getDashboardTips();
+    : getDashboardTips(asOfDate);
   const tipSource = narrated?.source ?? "fallback";
   const tipRefusal = narrated?.refusalReason;
   const { netWorth, currency } = summary;

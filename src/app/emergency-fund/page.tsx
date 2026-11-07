@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/money";
 import { formatRatio } from "@/lib/percent";
+import { todayUtc } from "@/lib/dates";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export default function EmergencyFundPage() {
-  const fund = getEmergencyFund();
+  const fund = getEmergencyFund(todayUtc());
   const funded = fund.targetCents > 0 && fund.gapCents === 0;
   const missingEssentialTarget =
     fund.essentialSpendSource === "computed" &&
