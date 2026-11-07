@@ -1,16 +1,17 @@
 "use client";
 
 import {
-  ALLOCATION_BUCKETS,
-  defaultAllocationBucket,
+  ALLOCATION_SLEEVES,
   defaultIncludeInAllocation,
-  type AllocationBucket,
+  defaultSleevePercents,
+  type AllocationPercents,
+  type AllocationSleeve,
 } from "@/domain/allocation";
 import { ASSET_TYPES, type AssetType } from "@/domain/net-worth";
 import { useState } from "react";
-import { ASSET_TYPE_LABELS } from "./labels";
+import { ASSET_TYPE_DESCRIPTIONS, ASSET_TYPE_LABELS } from "./labels";
 
-const BUCKET_LABELS: Record<AllocationBucket, string> = {
+const SLEEVE_LABELS: Record<AllocationSleeve, string> = {
   cash: "Cash",
   bonds: "Bonds",
   equities: "Equities",
@@ -26,7 +27,7 @@ type AssetFormProps = {
     type: AssetType;
     isLiquid: boolean;
     includeInAllocation: boolean;
-    allocationBucket: AllocationBucket;
+    sleevePercents: AllocationPercents;
     notes: string;
   };
 };
@@ -45,8 +46,8 @@ export function AssetForm({
   const [includeInAllocation, setIncludeInAllocation] = useState(
     defaults?.includeInAllocation ?? defaultIncludeInAllocation(initialType),
   );
-  const [allocationBucket, setAllocationBucket] = useState<AllocationBucket>(
-    defaults?.allocationBucket ?? defaultAllocationBucket(initialType),
+  const [sleevePercents, setSleevePercents] = useState<AllocationPercents>(
+    defaults?.sleevePercents ?? defaultSleevePercents(initialType),
   );
   const [lockLiquidDefault, setLockLiquidDefault] = useState(
     defaults !== undefined,
@@ -54,9 +55,15 @@ export function AssetForm({
   const [lockIncludeDefault, setLockIncludeDefault] = useState(
     defaults !== undefined,
   );
-  const [lockBucketDefault, setLockBucketDefault] = useState(
+  const [lockSleeveDefault, setLockSleeveDefault] = useState(
     defaults !== undefined,
   );
+
+  const sleeveSum = ALLOCATION_SLEEVES.reduce(
+    (sum, sleeve) => sum + (Number.isFinite(sleevePercents[sleeve]) ? sleevePercents[sleeve] : 0),
+    0,
+  );
+  const showSplitNote = type === "brokerage" || type === "retirement";
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -91,7 +98,7 @@ export function AssetForm({
             if (!lockIncludeDefault) {
               setIncludeInAllocation(defaultIncludeInAllocation(next));
             }
-            if (!lockBucketDefault) setAllocationBucket(defaultAllocationBucket(next));
+            if (!lockSleeveDefault) setSleevePercents(defaultSleevePercents(next));
           }}
           className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
         >
@@ -101,6 +108,9 @@ export function AssetForm({
             </option>
           ))}
         </select>
+        <p className="text-sm text-stone-600">
+          {ASSET_TYPE_DESCRIPTIONS[type]}
+        </p>
       </div>
       <div className="flex flex-col gap-1">
         <label htmlFor={fieldId(id, "notes")} className="text-sm font-medium">
@@ -134,34 +144,6 @@ export function AssetForm({
           </span>
         </span>
       </label>
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor={fieldId(id, "allocationBucket")}
-          className="text-sm font-medium"
-        >
-          Allocation bucket
-        </label>
-        <select
-          id={fieldId(id, "allocationBucket")}
-          name="allocationBucket"
-          value={allocationBucket}
-          onChange={(event) => {
-            setLockBucketDefault(true);
-            setAllocationBucket(event.target.value as AllocationBucket);
-          }}
-          className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
-        >
-          {ALLOCATION_BUCKETS.map((bucket) => (
-            <option key={bucket} value={bucket}>
-              {BUCKET_LABELS[bucket]}
-            </option>
-          ))}
-        </select>
-        <p className="text-sm text-stone-600">
-          Where this asset sits in the investment mix. Bonds stay out of the
-          mix until you choose Bonds.
-        </p>
-      </div>
       <label className="flex items-start gap-2 text-sm text-stone-800">
         <input
           type="checkbox"
@@ -175,13 +157,72 @@ export function AssetForm({
           className="mt-0.5"
         />
         <span>
-          Include in allocation
+          Count in investment mix
           <span className="mt-0.5 block text-stone-600">
-            Count this asset in the investment mix. Property and vehicles start
-            excluded.
+            Property, vehicles, receivables, and businesses start excluded.
           </span>
         </span>
       </label>
+      {includeInAllocation ? (
+        type === "cash" ? (
+          <>
+            <p className="text-sm text-stone-600">
+              Cash assets stay in the cash sleeve at 100%.
+            </p>
+            <SleeveHiddenInputs percents={{ cash: 100, bonds: 0, equities: 0, other: 0 }} />
+          </>
+        ) : (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-medium">Allocation mix</legend>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {ALLOCATION_SLEEVES.map((sleeve) => (
+                <div key={sleeve} className="flex flex-col gap-1">
+                  <label
+                    htmlFor={fieldId(id, `${sleeve}Pct`)}
+                    className="text-sm text-stone-700"
+                  >
+                    {SLEEVE_LABELS[sleeve]} %
+                  </label>
+                  <input
+                    id={fieldId(id, `${sleeve}Pct`)}
+                    name={`${sleeve}Pct`}
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    required
+                    value={sleevePercents[sleeve]}
+                    onChange={(event) => {
+                      setLockSleeveDefault(true);
+                      const next = Number(event.target.value);
+                      setSleevePercents((prev) => ({
+                        ...prev,
+                        [sleeve]: Number.isFinite(next) ? next : 0,
+                      }));
+                    }}
+                    className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
+                  />
+                </div>
+              ))}
+            </div>
+            <p
+              className={
+                sleeveSum === 100
+                  ? "text-sm text-stone-600"
+                  : "text-sm text-amber-800"
+              }
+            >
+              {showSplitNote
+                ? "Split a mixed account across sleeves, for example 60% equities and 40% bonds. "
+                : null}
+              Percents must be whole numbers that sum to 100
+              {sleeveSum === 100 ? "." : ` (now ${sleeveSum}).`}
+            </p>
+          </fieldset>
+        )
+      ) : (
+        <SleeveHiddenInputs percents={sleevePercents} />
+      )}
       <button
         type="submit"
         className="w-fit rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
@@ -189,6 +230,21 @@ export function AssetForm({
         {submitLabel}
       </button>
     </form>
+  );
+}
+
+function SleeveHiddenInputs({ percents }: { percents: AllocationPercents }) {
+  return (
+    <>
+      {ALLOCATION_SLEEVES.map((sleeve) => (
+        <input
+          key={sleeve}
+          type="hidden"
+          name={`${sleeve}Pct`}
+          value={percents[sleeve]}
+        />
+      ))}
+    </>
   );
 }
 

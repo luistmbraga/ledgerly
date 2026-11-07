@@ -9,7 +9,7 @@ import {
 } from "./goals";
 import {
   bandForLabel,
-  computeAllocationMix,
+  computeInvestableMix,
   ZERO_MIX,
   type AllocationAsset,
   type AllocationPercents,
@@ -17,7 +17,7 @@ import {
 import type { AssetType, NetWorthResult } from "./net-worth";
 
 /** Bump when formulas change so later AI cache keys can invalidate. */
-export const DOMAIN_VERSION = "2026-01-01";
+export const DOMAIN_VERSION = "2026-11-06";
 
 export type SnapshotCategory = {
   id: number;
@@ -93,8 +93,11 @@ export type FinancialSnapshot = {
   } | null;
   allocation: {
     targetBand: AllocationPercents;
+    /** Long-term mix after held emergency fund and short-goal cash are removed. */
     currentMix: AllocationPercents;
     shortGoalRemainingCents: number;
+    emergencyReservedCents: number;
+    shortGoalReservedCents: number;
   };
   findings: Finding[];
   categories: SnapshotCategory[];
@@ -265,17 +268,27 @@ export function buildFinancialSnapshot(
     },
     goals,
     investorProfile: input.investorProfile,
-    allocation: {
-      targetBand: {
-        ...(input.investorProfile === null
-          ? ZERO_MIX
-          : (bandForLabel(input.investorProfile.label) ?? ZERO_MIX)),
-      },
-      currentMix: computeAllocationMix(input.allocationAssets ?? []),
-      shortGoalRemainingCents: goals
+    allocation: (() => {
+      const shortGoalRemainingCents = goals
         .filter((goal) => goal.bucket === "short")
-        .reduce((sum, goal) => sum + goal.remainingCents, 0),
-    },
+        .reduce((sum, goal) => sum + goal.remainingCents, 0);
+      const investable = computeInvestableMix(input.allocationAssets ?? [], {
+        emergencyEligibleCents: input.emergencyFund.eligibleCents,
+        emergencyTargetCents: input.emergencyFund.targetCents,
+        shortGoalRemainingCents,
+      });
+      return {
+        targetBand: {
+          ...(input.investorProfile === null
+            ? ZERO_MIX
+            : (bandForLabel(input.investorProfile.label) ?? ZERO_MIX)),
+        },
+        currentMix: investable.mix,
+        shortGoalRemainingCents,
+        emergencyReservedCents: investable.emergencyReservedCents,
+        shortGoalReservedCents: investable.shortGoalReservedCents,
+      };
+    })(),
     findings,
     categories: [...input.categories],
   };

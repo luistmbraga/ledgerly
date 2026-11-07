@@ -269,7 +269,7 @@ describe("buildFinancialSnapshot", () => {
       }),
     );
 
-    expect(snapshot.version).toBe("2026-01-01");
+    expect(snapshot.version).toBe("2026-11-06");
     expect(snapshot.netWorth.netWorthCents).toBe(210_000);
     expect(snapshot.cashflow).toMatchObject({
       trailingMonths: 3,
@@ -291,6 +291,8 @@ describe("buildFinancialSnapshot", () => {
       targetBand: { cash: 0, bonds: 0, equities: 0, other: 0 },
       currentMix: { cash: 0, bonds: 0, equities: 0, other: 0 },
       shortGoalRemainingCents: 0,
+      emergencyReservedCents: 0,
+      shortGoalReservedCents: 0,
     });
     expect(snapshot.findings.map((finding) => finding.id)).toEqual([
       "low_savings_rate",
