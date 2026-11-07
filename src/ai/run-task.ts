@@ -89,13 +89,13 @@ export async function runAiTask<T extends ModelObject>(options: {
     }
   }
 
-  const useFallback = (refusalReason?: string): TaskResult<T> => ({
+  const makeFallback = (refusalReason?: string): TaskResult<T> => ({
     output: options.fallback(),
     source: "fallback",
     refusalReason,
   });
 
-  if (!config) return useFallback();
+  if (!config) return makeFallback();
 
   const system = `${AI_SYSTEM_PROMPT}\n${options.instructions}`;
   const schema = toStrictSchema(options.jsonSchema);
@@ -133,11 +133,11 @@ export async function runAiTask<T extends ModelObject>(options: {
   };
 
   const first = await callOnce(JSON.stringify(options.input));
-  if (!first.ok) return useFallback();
+  if (!first.ok) return makeFallback();
 
   let result = attempt(first.value);
   if (result.kind === "refused") {
-    return useFallback(result.reason);
+    return makeFallback(result.reason);
   }
 
   if (result.kind === "reject" && options.repair) {
@@ -152,12 +152,12 @@ export async function runAiTask<T extends ModelObject>(options: {
     if (repaired.ok) {
       result = attempt(repaired.value);
       if (result.kind === "refused") {
-        return useFallback(result.reason);
+        return makeFallback(result.reason);
       }
     }
   }
 
-  if (result.kind !== "ok") return useFallback();
+  if (result.kind !== "ok") return makeFallback();
 
   try {
     store.save({
