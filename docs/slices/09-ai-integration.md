@@ -46,8 +46,8 @@ Slice 08 (findings + partial snapshot), slice 07 (briefing gate), slice 06 (goal
 
 ### Domain (tests)
 
-- `computeAllocationMix(assetsWithLatest)` → currentMixPercent
-- `buildBriefingDecision(profile, emergency, goals, mix)` → decision object
+- `computeInvestableMix(assets, reserves)` → investable currentMixPercent after emergency and short-goal reserves
+- `buildBriefingDecision(profile, emergency, goals, mix, shortGoalReserved)` → decision object
 
 ## Files allowed
 

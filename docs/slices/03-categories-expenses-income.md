@@ -27,7 +27,7 @@ Slice 01 (slice 02 recommended for dashboard surplus later, not blocking).
 
 ### UI
 
-- `/activity` with tabs Expenses and Income (Invoices tab placeholder label "Coming in slice 04" or disabled)
+- `/activity` with tabs Expenses and Income
 - Forms and tables per [ux.md](../ux.md)
 - Show uncategorized expenses visually
 
@@ -47,7 +47,6 @@ src/app/activity/page.tsx, components for tabs/tables
 ## Out of scope
 
 - AI category suggest
-- Invoices
 - Updating asset balances from income/expense
 
 ## Acceptance checks

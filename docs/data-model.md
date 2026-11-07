@@ -11,8 +11,10 @@ erDiagram
   liabilities ||--o{ value_snapshots : has
   categories ||--o{ expenses : classifies
   categories ||--o{ incomes : classifies
-  invoices ||--o| incomes : linked
-  invoices ||--o| expenses : linked
+  assets ||--o{ expenses : optional_cash
+  assets ||--o{ incomes : optional_cash
+  value_snapshots ||--o| expenses : linked
+  value_snapshots ||--o| incomes : linked
   goals ||--|| goal_status_cache : optional
   personality_answers }o--|| investor_profiles : completes
   ai_results }o--|| tasks : caches
@@ -44,8 +46,11 @@ Single row `id = 1`.
 | type | text | enum from product.md |
 | name | text | |
 | is_liquid | integer | 0/1 |
-| include_in_allocation | integer | 0/1, default 1. New real estate and vehicles default to 0 in the form. |
-| allocation_bucket | text | `cash` \| `bonds` \| `equities` \| `other`. Backfilled from the type map. |
+| include_in_allocation | integer | 0/1, default 1. New real estate, vehicles, receivables, and businesses default to 0 in the form. |
+| cash_pct | integer | Sleeve weight 0–100. With bonds/equities/other must sum to 100. |
+| bonds_pct | integer | |
+| equities_pct | integer | |
+| other_pct | integer | Default 100 for new rows before form defaults apply. |
 | notes | text nullable | |
 | created_at | text | |
 | updated_at | text | |
@@ -108,11 +113,13 @@ Seed defaults on first run (slice 03): see slice file.
 | amount_cents | integer | > 0 |
 | occurred_on | text | date |
 | category_id | integer nullable FK | |
+| asset_id | integer nullable FK → assets.id | cash assets only; `on delete set null` |
+| linked_snapshot_id | integer nullable FK → value_snapshots.id | snapshot from cash link; `on delete set null` |
 | note | text nullable | |
 | created_at | text | |
 | updated_at | text | |
 
-Index: `(occurred_on)`, `(category_id)`.
+Index: `(occurred_on)`, `(category_id)`, `(asset_id)`.
 
 ---
 
@@ -124,30 +131,13 @@ Index: `(occurred_on)`, `(category_id)`.
 | amount_cents | integer | > 0 |
 | occurred_on | text | date |
 | category_id | integer nullable FK | |
+| asset_id | integer nullable FK → assets.id | cash assets only; `on delete set null` |
+| linked_snapshot_id | integer nullable FK → value_snapshots.id | snapshot from cash link; `on delete set null` |
 | note | text nullable | |
 | created_at | text | |
 | updated_at | text | |
 
----
-
-## Table: `invoices`
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | integer PK | |
-| direction | text | `receivable` \| `payable` |
-| amount_cents | integer | > 0 |
-| due_on | text nullable | date |
-| status | text | `open` \| `paid` \| `cancelled` |
-| counterparty | text nullable | |
-| note | text nullable | |
-| paid_at | text nullable | ISO datetime |
-| linked_income_id | integer nullable FK | |
-| linked_expense_id | integer nullable FK | |
-| created_at | text | |
-| updated_at | text | |
-
-Index: `(status)`, `(due_on)`.
+Index: `(occurred_on)`, `(category_id)`, `(asset_id)`.
 
 ---
 

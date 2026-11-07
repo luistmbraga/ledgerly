@@ -14,12 +14,14 @@ import {
 import {
   createExpense,
   deleteExpense,
+  getExpense,
   listExpenses,
   updateExpense,
 } from "@/db/repositories/expenses";
 import {
   createIncome,
   deleteIncome,
+  getIncome,
   updateIncome,
 } from "@/db/repositories/incomes";
 import { isValidIsoDate } from "@/db/repositories/snapshots";
@@ -85,6 +87,29 @@ function readCategoryId(
   return id;
 }
 
+function readAssetId(
+  formData: FormData,
+  tab: string,
+  editId?: number,
+): number | null {
+  const raw = String(formData.get("assetId") ?? "").trim();
+  if (raw === "") return null;
+  if (!/^\d+$/.test(raw)) fail(tab, "Choose a cash account.", editId);
+  const id = Number(raw);
+  if (!Number.isSafeInteger(id)) fail(tab, "Choose a cash account.", editId);
+  return id;
+}
+
+function revalidateJournalPaths(assetId: number | null) {
+  revalidatePath("/activity");
+  revalidatePath("/");
+  revalidatePath("/assets");
+  revalidatePath("/emergency-fund");
+  if (assetId !== null) {
+    revalidatePath(`/assets/${assetId}`);
+  }
+}
+
 function readJournalInput(formData: FormData, tab: JournalTab, editId?: number) {
   const parsed = parseMoneyToCents(String(formData.get("amount") ?? ""));
   if (!parsed.ok) fail(tab, parsed.error, editId);
@@ -97,6 +122,7 @@ function readJournalInput(formData: FormData, tab: JournalTab, editId?: number) 
     amountCents: parsed.cents,
     occurredOn,
     categoryId: readCategoryId(formData, tab, editId),
+    assetId: readAssetId(formData, tab, editId),
     note: readNote(formData, tab, editId),
   };
 }
@@ -179,7 +205,7 @@ export async function createExpenseAction(formData: FormData) {
       error instanceof Error ? error.message : "Could not save the expense.",
     );
   }
-  revalidatePath("/activity");
+  revalidateJournalPaths(input.assetId);
   redirect(activityPath("expenses", { saved: "expense-created" }));
 }
 
@@ -196,14 +222,16 @@ export async function updateExpenseAction(formData: FormData) {
       id,
     );
   }
-  revalidatePath("/activity");
+  revalidateJournalPaths(input.assetId);
   redirect(activityPath("expenses", { saved: "expense-updated" }));
 }
 
 export async function deleteExpenseAction(formData: FormData) {
   const id = readId(formData);
-  if (id === null || !deleteExpense(id)) fail("expenses", "Expense not found.");
-  revalidatePath("/activity");
+  if (id === null) fail("expenses", "Expense not found.");
+  const existing = getExpense(id);
+  if (!existing || !deleteExpense(id)) fail("expenses", "Expense not found.");
+  revalidateJournalPaths(existing.assetId);
   redirect(activityPath("expenses", { saved: "expense-deleted" }));
 }
 
@@ -217,7 +245,7 @@ export async function createIncomeAction(formData: FormData) {
       error instanceof Error ? error.message : "Could not save the income.",
     );
   }
-  revalidatePath("/activity");
+  revalidateJournalPaths(input.assetId);
   redirect(activityPath("income", { saved: "income-created" }));
 }
 
@@ -234,14 +262,16 @@ export async function updateIncomeAction(formData: FormData) {
       id,
     );
   }
-  revalidatePath("/activity");
+  revalidateJournalPaths(input.assetId);
   redirect(activityPath("income", { saved: "income-updated" }));
 }
 
 export async function deleteIncomeAction(formData: FormData) {
   const id = readId(formData);
-  if (id === null || !deleteIncome(id)) fail("income", "Income not found.");
-  revalidatePath("/activity");
+  if (id === null) fail("income", "Income not found.");
+  const existing = getIncome(id);
+  if (!existing || !deleteIncome(id)) fail("income", "Income not found.");
+  revalidateJournalPaths(existing.assetId);
   redirect(activityPath("income", { saved: "income-deleted" }));
 }
 

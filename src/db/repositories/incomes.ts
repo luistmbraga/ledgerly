@@ -1,19 +1,26 @@
 import { desc, eq } from "drizzle-orm";
 import { isValidIsoDate } from "./snapshots";
 import { getCategory } from "./categories";
+import {
+  createCashLink,
+  deleteCashLink,
+  updateCashLink,
+} from "./cash-link";
 import { db } from "../client";
-import { categories, incomes, type IncomeRow } from "../schema";
+import { assets, categories, incomes, type IncomeRow } from "../schema";
 
 export type IncomeRecord = IncomeRow;
 
 export type IncomeWithCategory = IncomeRecord & {
   categoryName: string | null;
+  assetName: string | null;
 };
 
 export type IncomeInput = {
   amountCents: number;
   occurredOn: string;
   categoryId: number | null;
+  assetId: number | null;
   note: string | null;
 };
 
@@ -49,13 +56,17 @@ export function listIncomes(): IncomeWithCategory[] {
       amountCents: incomes.amountCents,
       occurredOn: incomes.occurredOn,
       categoryId: incomes.categoryId,
+      assetId: incomes.assetId,
+      linkedSnapshotId: incomes.linkedSnapshotId,
       note: incomes.note,
       createdAt: incomes.createdAt,
       updatedAt: incomes.updatedAt,
       categoryName: categories.name,
+      assetName: assets.name,
     })
     .from(incomes)
     .leftJoin(categories, eq(incomes.categoryId, categories.id))
+    .leftJoin(assets, eq(incomes.assetId, assets.id))
     .orderBy(desc(incomes.occurredOn), desc(incomes.id))
     .all();
 }
@@ -67,42 +78,81 @@ export function getIncome(id: number): IncomeRecord | undefined {
 export function createIncome(input: IncomeInput): IncomeRecord {
   const value = assertIncomeInput(input);
   const now = new Date().toISOString();
-  return db
-    .insert(incomes)
-    .values({
-      amountCents: value.amountCents,
+  return db.transaction((tx) => {
+    const link = createCashLink(tx, {
+      assetId: value.assetId,
       occurredOn: value.occurredOn,
-      categoryId: value.categoryId,
-      note: value.note,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning()
-    .get();
+      amountCents: value.amountCents,
+      direction: "income",
+    });
+    return tx
+      .insert(incomes)
+      .values({
+        amountCents: value.amountCents,
+        occurredOn: value.occurredOn,
+        categoryId: value.categoryId,
+        assetId: link.assetId,
+        linkedSnapshotId: link.linkedSnapshotId,
+        note: value.note,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning()
+      .get();
+  });
 }
 
 export function updateIncome(
   id: number,
   input: IncomeInput,
 ): IncomeRecord | undefined {
-  if (!getIncome(id)) return undefined;
+  const existing = getIncome(id);
+  if (!existing) return undefined;
   const value = assertIncomeInput(input);
-  return db
-    .update(incomes)
-    .set({
-      amountCents: value.amountCents,
-      occurredOn: value.occurredOn,
-      categoryId: value.categoryId,
-      note: value.note,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(incomes.id, id))
-    .returning()
-    .get();
+  return db.transaction((tx) => {
+    const link = updateCashLink(
+      tx,
+      {
+        assetId: existing.assetId,
+        linkedSnapshotId: existing.linkedSnapshotId,
+        amountCents: existing.amountCents,
+        occurredOn: existing.occurredOn,
+      },
+      {
+        assetId: value.assetId,
+        occurredOn: value.occurredOn,
+        amountCents: value.amountCents,
+        direction: "income",
+      },
+    );
+    return tx
+      .update(incomes)
+      .set({
+        amountCents: value.amountCents,
+        occurredOn: value.occurredOn,
+        categoryId: value.categoryId,
+        assetId: link.assetId,
+        linkedSnapshotId: link.linkedSnapshotId,
+        note: value.note,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(incomes.id, id))
+      .returning()
+      .get();
+  });
 }
 
 export function deleteIncome(id: number): boolean {
-  if (!getIncome(id)) return false;
-  db.delete(incomes).where(eq(incomes.id, id)).run();
+  const existing = getIncome(id);
+  if (!existing) return false;
+  db.transaction((tx) => {
+    deleteCashLink(tx, {
+      assetId: existing.assetId,
+      linkedSnapshotId: existing.linkedSnapshotId,
+      amountCents: existing.amountCents,
+      occurredOn: existing.occurredOn,
+    });
+    tx.delete(incomes).where(eq(incomes.id, id)).run();
+  });
   return true;
 }

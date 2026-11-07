@@ -15,7 +15,7 @@ It is a **personal tool**, not a regulated advisory product.
 ## Goals (user outcomes)
 
 1. See total net worth and how it breaks down by asset type and liabilities.
-2. Log income, expenses, and invoices; categorize spending.
+2. Log income and expenses; categorize spending.
 3. Get actionable feedback on where spending could improve (rules + optional AI tips).
 4. Complete a short investor self-assessment and see a **revealed** personality label once finished.
 5. Know emergency fund target, current funding, and gap.
@@ -38,8 +38,7 @@ It is a **personal tool**, not a regulated advisory product.
 |-------|----------|
 | Net worth | Sum of latest asset snapshots minus sum of latest liability snapshots (same display currency). |
 | Balance updates | User posts new snapshots; history retained. |
-| Cashflow | Income/expense/invoice journal drives categories, tips, emergency fund spend average, savings rate—not automatic ledger posting to asset balances. |
-| Invoices | Receivable (owed to user) or payable (user owes); statuses `open`, `paid`, `cancelled`. Paying may create linked income/expense. |
+| Cashflow | Income/expense journal drives categories, tips, emergency fund spend average, savings rate. An expense or income may optionally link to a **cash** asset and append a value snapshot; other asset types stay on manual snapshots. No full double-entry reconciliation. |
 | Emergency fund | Target months × essential monthly spend; eligible balance from liquid assets flagged for the fund. |
 | Goals | User sets aside amount + target date; calculator returns status and required monthly contribution. |
 | Personality | Self-assessment quiz; result hidden until complete; stored and viewable; retake replaces result. |
@@ -57,7 +56,6 @@ It is a **personal tool**, not a regulated advisory product.
 | Net worth | Total assets − total liabilities (from snapshots). |
 | Income entry | Money received; increases understanding of cashflow (not auto-deposited to an asset balance). |
 | Expense entry | Money spent; has category; may be marked essential via category. |
-| Invoice | Expected future cashflow (receivable or payable) with optional due date. |
 | Essential spend | Expenses in categories flagged `isEssential`, or user override for emergency fund math. |
 | Emergency fund eligible | Liquid assets the user marked as counting toward the emergency fund. |
 | Goal | Savings target with horizon bucket (short/mid/long), target amount, target date, amount already set aside. |
@@ -95,7 +93,7 @@ Derived from **months until target date** at creation/update:
 ## Success criteria for v1 release
 
 - User can maintain assets/liabilities and see net worth.
-- User can log income/expenses/invoices and categorize expenses.
+- User can log income/expenses and categorize expenses.
 - Emergency fund and goals pages show deterministic numbers matching domain formulas.
 - Personality quiz reveals once; briefing gated until complete.
 - Findings visible without AI; with AI key, narrated tips and briefing prose.

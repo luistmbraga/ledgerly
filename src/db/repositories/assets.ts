@@ -1,15 +1,19 @@
 import { eq } from "drizzle-orm";
-import { isAllocationBucket, type AllocationBucket } from "@/domain/allocation";
+import {
+  isValidSleevePercents,
+  type AllocationPercents,
+} from "@/domain/allocation";
 import {
   isAssetType,
   type AssetType,
 } from "@/domain/net-worth";
 import { db } from "../client";
 import { assets, valueSnapshots, type AssetRow } from "../schema";
+import { clearCashLinksForAsset } from "./cash-link";
 
-export type AssetRecord = Omit<AssetRow, "type" | "allocationBucket"> & {
+export type AssetRecord = Omit<AssetRow, "type"> & {
   type: AssetType;
-  allocationBucket: AllocationBucket;
+  sleevePercents: AllocationPercents;
 };
 
 export type AssetInput = {
@@ -17,7 +21,7 @@ export type AssetInput = {
   type: AssetType;
   isLiquid: boolean;
   includeInAllocation: boolean;
-  allocationBucket: AllocationBucket;
+  sleevePercents: AllocationPercents;
   notes: string | null;
 };
 
@@ -25,6 +29,15 @@ function invalid(message: string): never {
   const error = new Error(message);
   error.name = "ValidationError";
   throw error;
+}
+
+function sleevePercentsFromRow(row: AssetRow): AllocationPercents {
+  return {
+    cash: row.cashPct,
+    bonds: row.bondsPct,
+    equities: row.equitiesPct,
+    other: row.otherPct,
+  };
 }
 
 function assertAssetInput(input: AssetInput): AssetInput {
@@ -35,8 +48,19 @@ function assertAssetInput(input: AssetInput): AssetInput {
   if (!isAssetType(input.type)) {
     invalid("Choose a valid asset type.");
   }
-  if (!isAllocationBucket(input.allocationBucket)) {
-    invalid("Choose a valid allocation bucket.");
+  if (!isValidSleevePercents(input.sleevePercents)) {
+    invalid("Allocation percents must be whole numbers that sum to 100.");
+  }
+  if (input.type === "cash") {
+    const locked = input.sleevePercents;
+    if (
+      locked.cash !== 100 ||
+      locked.bonds !== 0 ||
+      locked.equities !== 0 ||
+      locked.other !== 0
+    ) {
+      invalid("Cash assets stay 100% in the cash sleeve.");
+    }
   }
   if (input.notes !== null && input.notes.length > 2000) {
     invalid("Notes must be 2000 characters or fewer.");
@@ -48,10 +72,13 @@ function asAsset(row: AssetRow): AssetRecord {
   if (!isAssetType(row.type)) {
     throw new Error(`Unknown asset type: ${row.type}`);
   }
-  if (!isAllocationBucket(row.allocationBucket)) {
-    throw new Error(`Unknown allocation bucket: ${row.allocationBucket}`);
+  const sleevePercents = sleevePercentsFromRow(row);
+  if (!isValidSleevePercents(sleevePercents)) {
+    throw new Error(
+      `Invalid sleeve percents on asset ${row.id}: ${JSON.stringify(sleevePercents)}`,
+    );
   }
-  return { ...row, type: row.type, allocationBucket: row.allocationBucket };
+  return { ...row, type: row.type, sleevePercents };
 }
 
 export function listAssets(): AssetRecord[] {
@@ -73,7 +100,10 @@ export function createAsset(input: AssetInput): AssetRecord {
       type: value.type,
       isLiquid: value.isLiquid,
       includeInAllocation: value.includeInAllocation,
-      allocationBucket: value.allocationBucket,
+      cashPct: value.sleevePercents.cash,
+      bondsPct: value.sleevePercents.bonds,
+      equitiesPct: value.sleevePercents.equities,
+      otherPct: value.sleevePercents.other,
       notes: value.notes,
       createdAt: now,
       updatedAt: now,
@@ -96,7 +126,10 @@ export function updateAsset(
       type: value.type,
       isLiquid: value.isLiquid,
       includeInAllocation: value.includeInAllocation,
-      allocationBucket: value.allocationBucket,
+      cashPct: value.sleevePercents.cash,
+      bondsPct: value.sleevePercents.bonds,
+      equitiesPct: value.sleevePercents.equities,
+      otherPct: value.sleevePercents.other,
       notes: value.notes,
       updatedAt: new Date().toISOString(),
     })
@@ -109,6 +142,7 @@ export function updateAsset(
 export function deleteAsset(id: number): boolean {
   if (!getAsset(id)) return false;
   db.transaction((tx) => {
+    clearCashLinksForAsset(tx, id);
     tx.delete(valueSnapshots).where(eq(valueSnapshots.assetId, id)).run();
     tx.delete(assets).where(eq(assets.id, id)).run();
   });

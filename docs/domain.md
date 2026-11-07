@@ -24,8 +24,8 @@ Pure business rules for Ledgerly. Implement these in TypeScript (`src/domain/`) 
 - `type`: asset type enum.
 - `name`: string.
 - `isLiquid`: boolean (counts toward emergency fund if true).
-- `includeInAllocation`: boolean (include in investment mix chart). Default true, except `real_estate` and `vehicle`, which default to excluded.
-- `allocationBucket`: `cash` | `bonds` | `equities` | `other`. Overrides the type map below. When omitted, use the type map.
+- `includeInAllocation`: boolean (include in investment mix chart). Default true, except `real_estate`, `vehicle`, `receivable`, and `business`, which default to excluded.
+- `sleevePercents`: `{ cash, bonds, equities, other }` integers that sum to 100. When omitted, use the type defaults below. Cash assets stay locked at 100% cash.
 
 ### Liability
 
@@ -47,12 +47,11 @@ Pure business rules for Ledgerly. Implement these in TypeScript (`src/domain/`) 
 ### Expense / Income
 
 - `amountCents`, `occurredOn`, `categoryId` (optional for expense until categorized), `note` optional.
-
-### Invoice
-
-- `direction`: `receivable` | `payable`.
-- `amountCents`, `dueOn` optional, `status`, `counterparty` optional, `note` optional.
-- `linkedIncomeId` / `linkedExpenseId` optional after mark paid.
+- Optional `assetId`: must reference an asset with `type === cash`. When set, saving appends (or updates) a linked value snapshot so that cash balance moves: expense decreases, income increases. Missing prior snapshot treats balance as `0`. Resulting snapshot `amountCents` must stay ≥ 0.
+- `linkedSnapshotId`: snapshot created for this cash link (null when unlinked).
+- Snapshot `recordedOn` equals the entry `occurredOn`. Linking is rejected if `occurredOn` is before the asset’s current latest snapshot date (backdated entries must not hide under a newer balance).
+- While the linked snapshot is still the asset’s latest: edits update that snapshot in place; clearing the account deletes that snapshot.
+- After a newer snapshot exists on the asset: amount, date, and account are frozen (note/category remain editable). Deleting the journal row leaves snapshots unchanged.
 
 ### Goal
 
@@ -80,7 +79,7 @@ Pure business rules for Ledgerly. Implement these in TypeScript (`src/domain/`) 
 2. Deleting an asset/liability cascades snapshots (or soft-delete not used in v1—hard delete OK).
 3. Expense category, if set, must be `kind === expense`.
 4. Income category, if set, must be `kind === income`.
-5. Invoice `paid` requires `paidAt` and optionally creates linked journal entry once.
+5. Expense/income `assetId`, if set, must reference a cash asset; linked snapshot balance stays ≥ 0.
 6. Goal `targetDate` must be ≥ today when created (allow past dates only if user explicitly edits—default validate ≥ today).
 7. Personality: `label` is null in UI until all required questions answered; stored profile only written on submit.
 
@@ -315,18 +314,24 @@ Near-term goal rule: sum of `remainingCents` for goals with `short` bucket → t
 
 1. If `gapCents > 0` → primary action: build emergency fund before increasing risk assets.
 2. Allocate `shortGoalRemainingCents` mentally to cash (do not recommend equities for that portion).
-3. Compare user's current mix (from assets with `includeInAllocation`) to band; report drift in percentage points, not trade orders.
+3. Compare the user's **investable** mix to the band; report drift in percentage points, not trade orders.
 
-Current mix uses each included asset's `allocationBucket`. When that field is absent, map type:
+**Current mix (investable):** multiply each included asset's latest value by its `sleevePercents`, then remove reserves before converting to percents:
 
-| Bucket | Asset types |
-|--------|-------------|
-| cash | `cash`, `receivable` |
-| bonds | none (set `allocationBucket` to `bonds` to count here) |
-| equities | `brokerage`, `retirement` |
-| other | `crypto`, `real_estate`, `vehicle`, `business`, `other` |
+1. Emergency reserve: from included **liquid** assets, cash sleeve first then bonds, equities, other, remove up to `min(eligibleCents, targetCents)`.
+2. Short-term goals: from remaining cash sleeve, remove up to `shortGoalRemainingCents`.
 
-Bond exposure may still live inside retirement or brokerage funds. Those stay in equities until the asset's bucket is set to bonds.
+Unfunded gaps are not invented as cash. Surplus cash above the emergency target stays in the mix.
+
+Default sleeve percents when unset:
+
+| Default sleeve | Asset types |
+|----------------|-------------|
+| cash 100% | `cash` |
+| equities 100% | `brokerage`, `retirement` |
+| other 100% | `crypto`, `real_estate`, `vehicle`, `business`, `receivable`, `other` |
+
+Brokerage and retirement accounts can split across sleeves (for example 60% equities / 40% bonds) so bond exposure inside a fund is not forced into equities.
 
 ---
 

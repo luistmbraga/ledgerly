@@ -6,23 +6,49 @@ function numberKey(token: string): string {
   return Object.is(value, -0) ? "0" : String(value);
 }
 
-function collectNumbers(value: unknown, into: Set<string>) {
-  const text = typeof value === "string" ? value : JSON.stringify(value);
+/** Strip thousands-separator commas so €3,000.00 yields the same token as 3000. */
+function normalizeForNumbers(text: string): string {
+  return text.replace(/,/g, "");
+}
+
+function collectNumbersFromText(text: string, into: Set<string>) {
   if (!text) return;
-  for (const match of text.matchAll(/-?\d+(?:\.\d+)?/g)) {
+  const normalized = normalizeForNumbers(text);
+  for (const match of normalized.matchAll(/-?\d+(?:\.\d+)?/g)) {
     into.add(numberKey(match[0]));
   }
 }
 
-/** Numbers in `output` that do not already appear in `input`. */
+/** Walk a value and collect digit tokens from string leaves only (not numeric ids). */
+function collectNumbersFromStrings(value: unknown, into: Set<string>) {
+  if (typeof value === "string") {
+    collectNumbersFromText(value, into);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectNumbersFromStrings(item, into);
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      collectNumbersFromStrings(item, into);
+    }
+  }
+}
+
+/**
+ * Numbers in string fields of `output` that do not already appear in `quotable`.
+ * Pass only display strings (and the expense note), not ids or dates.
+ * Numeric JSON fields (e.g. categoryId) are ignored.
+ */
 export function numbersMissingFromInput(
-  input: unknown,
+  quotable: unknown,
   output: unknown,
 ): string[] {
   const allowed = new Set<string>();
-  collectNumbers(input, allowed);
+  collectNumbersFromStrings(quotable, allowed);
   const found = new Set<string>();
-  collectNumbers(output, found);
+  collectNumbersFromStrings(output, found);
   return [...found].filter((token) => !allowed.has(token));
 }
 

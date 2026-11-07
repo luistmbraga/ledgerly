@@ -81,7 +81,8 @@ export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
         selectLatestSnapshot(listSnapshotsForAsset(asset.id))?.amountCents ??
         null,
       includeInAllocation: asset.includeInAllocation,
-      allocationBucket: asset.allocationBucket,
+      isLiquid: asset.isLiquid,
+      sleevePercents: asset.sleevePercents,
     })),
   });
 }

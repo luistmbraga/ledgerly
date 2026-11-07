@@ -3,7 +3,7 @@ import { formatMoney } from "../lib/money";
 
 export type FindingSeverity = "info" | "warn";
 
-export type FindingData = Record<string, number | string | boolean | null>;
+export type FindingData = Record<string, number | string | boolean | null | undefined>;
 
 export type Finding = {
   id: string;

@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { isAllocationBucket } from "@/domain/allocation";
+import {
+  isValidSleevePercents,
+  type AllocationPercents,
+} from "@/domain/allocation";
 import { isAssetType } from "@/domain/net-worth";
 import {
   createAsset,
@@ -43,18 +46,42 @@ function readAssetFields(formData: FormData, path: string) {
   if (!isAssetType(type)) {
     fail(path, "Choose a valid asset type.");
   }
-  const allocationBucket = String(formData.get("allocationBucket") ?? "");
-  if (!isAllocationBucket(allocationBucket)) {
-    fail(path, "Choose a valid allocation bucket.");
+  const sleevePercents = readSleevePercents(formData);
+  if (!isValidSleevePercents(sleevePercents)) {
+    fail(path, "Allocation percents must be whole numbers that sum to 100.");
+  }
+  if (
+    type === "cash" &&
+    (sleevePercents.cash !== 100 ||
+      sleevePercents.bonds !== 0 ||
+      sleevePercents.equities !== 0 ||
+      sleevePercents.other !== 0)
+  ) {
+    fail(path, "Cash assets stay 100% in the cash sleeve.");
   }
   return {
     name,
     type,
     isLiquid: formData.get("isLiquid") === "1",
     includeInAllocation: formData.get("includeInAllocation") === "1",
-    allocationBucket,
+    sleevePercents,
     notes: readNotes(formData, path),
   };
+}
+
+function readSleevePercents(formData: FormData): AllocationPercents {
+  return {
+    cash: readPercent(formData.get("cashPct")),
+    bonds: readPercent(formData.get("bondsPct")),
+    equities: readPercent(formData.get("equitiesPct")),
+    other: readPercent(formData.get("otherPct")),
+  };
+}
+
+function readPercent(raw: FormDataEntryValue | null): number {
+  const text = String(raw ?? "").trim();
+  if (!/^-?\d+$/.test(text)) return Number.NaN;
+  return Number(text);
 }
 
 export async function createAssetAction(formData: FormData) {

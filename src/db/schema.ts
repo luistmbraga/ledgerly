@@ -32,7 +32,10 @@ export const assets = sqliteTable(
     includeInAllocation: integer("include_in_allocation", { mode: "boolean" })
       .notNull()
       .default(true),
-    allocationBucket: text("allocation_bucket").notNull().default("other"),
+    cashPct: integer("cash_pct").notNull().default(0),
+    bondsPct: integer("bonds_pct").notNull().default(0),
+    equitiesPct: integer("equities_pct").notNull().default(0),
+    otherPct: integer("other_pct").notNull().default(100),
     notes: text("notes"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -100,6 +103,13 @@ export const expenses = sqliteTable(
     amountCents: integer("amount_cents").notNull(),
     occurredOn: text("occurred_on").notNull(),
     categoryId: integer("category_id").references(() => categories.id),
+    assetId: integer("asset_id").references(() => assets.id, {
+      onDelete: "set null",
+    }),
+    linkedSnapshotId: integer("linked_snapshot_id").references(
+      () => valueSnapshots.id,
+      { onDelete: "set null" },
+    ),
     note: text("note"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -107,42 +117,32 @@ export const expenses = sqliteTable(
   (table) => [
     index("expenses_occurred_on_idx").on(table.occurredOn),
     index("expenses_category_id_idx").on(table.categoryId),
+    index("expenses_asset_id_idx").on(table.assetId),
   ],
 );
 
-export const incomes = sqliteTable("incomes", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  amountCents: integer("amount_cents").notNull(),
-  occurredOn: text("occurred_on").notNull(),
-  categoryId: integer("category_id").references(() => categories.id),
-  note: text("note"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
-
-export const invoices = sqliteTable(
-  "invoices",
+export const incomes = sqliteTable(
+  "incomes",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    direction: text("direction").notNull(),
     amountCents: integer("amount_cents").notNull(),
-    dueOn: text("due_on"),
-    status: text("status").notNull(),
-    counterparty: text("counterparty"),
+    occurredOn: text("occurred_on").notNull(),
+    categoryId: integer("category_id").references(() => categories.id),
+    assetId: integer("asset_id").references(() => assets.id, {
+      onDelete: "set null",
+    }),
+    linkedSnapshotId: integer("linked_snapshot_id").references(
+      () => valueSnapshots.id,
+      { onDelete: "set null" },
+    ),
     note: text("note"),
-    paidAt: text("paid_at"),
-    linkedIncomeId: integer("linked_income_id").references(() => incomes.id, {
-      onDelete: "set null",
-    }),
-    linkedExpenseId: integer("linked_expense_id").references(() => expenses.id, {
-      onDelete: "set null",
-    }),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    index("invoices_status_idx").on(table.status),
-    index("invoices_due_on_idx").on(table.dueOn),
+    index("incomes_occurred_on_idx").on(table.occurredOn),
+    index("incomes_category_id_idx").on(table.categoryId),
+    index("incomes_asset_id_idx").on(table.assetId),
   ],
 );
 
@@ -201,7 +201,6 @@ export type ValueSnapshotRow = typeof valueSnapshots.$inferSelect;
 export type CategoryRow = typeof categories.$inferSelect;
 export type ExpenseRow = typeof expenses.$inferSelect;
 export type IncomeRow = typeof incomes.$inferSelect;
-export type InvoiceRow = typeof invoices.$inferSelect;
 export type GoalRow = typeof goals.$inferSelect;
 export type PersonalityAnswerRow = typeof personalityAnswers.$inferSelect;
 export type InvestorProfileRow = typeof investorProfiles.$inferSelect;

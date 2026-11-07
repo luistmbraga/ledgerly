@@ -64,6 +64,27 @@
       "when": 1793817493147,
       "tag": "0008_dizzy_silver_samurai",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793900000000,
+      "tag": "0009_allocation_sleeve_percents",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794000806649,
+      "tag": "0010_absurd_venus",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1794053440410,
+      "tag": "0011_unique_katie_power",
+      "breakpoints": true
     }
   ]
 }

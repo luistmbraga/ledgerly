@@ -141,6 +141,8 @@ type FinancialSnapshot = {
     targetBand: { cash: number; bonds: number; equities: number; other: number };
     currentMix: { cash: number; bonds: number; equities: number; other: number };
     shortGoalRemainingCents: number;
+    emergencyReservedCents: number;
+    shortGoalReservedCents: number;
   };
   findings: Array<{
     id: string;

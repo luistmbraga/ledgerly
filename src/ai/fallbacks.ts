@@ -91,7 +91,7 @@ export function briefingFallback(input: {
       `Your ${decision.profileTitle} band targets cash ${decision.targetBand.cash}%, bonds ${decision.targetBand.bonds}%, equities ${decision.targetBand.equities}%, and other ${decision.targetBand.other}%.`,
       `Current mix is cash ${decision.currentMixPercent.cash}%, bonds ${decision.currentMixPercent.bonds}%, equities ${decision.currentMixPercent.equities}%, and other ${decision.currentMixPercent.other}%.`,
       `Drift in percentage points is cash ${decision.drift.cash}, bonds ${decision.drift.bonds}, equities ${decision.drift.equities}, and other ${decision.drift.other}.`,
-      "Bond exposure may live inside retirement or brokerage funds, so the bonds bucket stays at 0 until those holdings are separated.",
+      "If a brokerage or retirement account holds bonds, split that asset across sleeves on the asset form.",
     ].join(" "),
   });
   return {

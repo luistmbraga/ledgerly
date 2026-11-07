@@ -52,7 +52,7 @@ src/services/dashboard-summary.ts (optional)
 
 - Linking journal to balances
 - Charts beyond simple bars/lists
-- Invoice/receivable assets auto-sync
+- Receivable assets auto-sync
 
 ## Acceptance checks
 
@@ -63,4 +63,5 @@ src/services/dashboard-summary.ts (optional)
 
 ## Notes
 
-Receivable **asset type** is manual tracking only in v1; invoices slice 04 does not auto-create receivable assets.
+Receivable **asset type** is manual tracking only in v1.
+
