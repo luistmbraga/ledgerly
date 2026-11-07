@@ -9,7 +9,6 @@ flowchart TD
   s01[01 Shell and settings]
   s02[02 Assets and net worth]
   s03[03 Categories journal]
-  s04[04 Invoices]
   s05[05 Emergency fund]
   s06[06 Goals]
   s07[07 Personality]
@@ -18,7 +17,6 @@ flowchart TD
 
   s01 --> s02
   s01 --> s03
-  s03 --> s04
   s03 --> s05
   s02 --> s05
   s03 --> s06
@@ -37,7 +35,6 @@ flowchart TD
 | 01 | [slices/01-app-shell-settings.md](slices/01-app-shell-settings.md) | Next.js app, SQLite, settings page, layout nav |
 | 02 | [slices/02-assets-net-worth.md](slices/02-assets-net-worth.md) | Assets, liabilities, snapshots, dashboard net worth |
 | 03 | [slices/03-categories-expenses-income.md](slices/03-categories-expenses-income.md) | Categories seed, expense/income CRUD, activity tabs |
-| 04 | [slices/04-invoices.md](slices/04-invoices.md) | Invoices + mark paid linkage |
 | 05 | [slices/05-emergency-fund.md](slices/05-emergency-fund.md) | Emergency fund page + domain tests |
 | 06 | [slices/06-goals.md](slices/06-goals.md) | Goals CRUD + feasibility calculator tests |
 | 07 | [slices/07-personality.md](slices/07-personality.md) | Quiz, reveal, stored profile |

@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { loadBriefing, type PropertyOrVehicleInMix } from "@/ai/tasks/briefing";
-import type { AllocationPercents } from "@/domain/allocation";
+import {
+  ALLOCATION_BANDS,
+  type AllocationPercents,
+} from "@/domain/allocation";
+import {
+  PERSONALITY_TITLES,
+  type PersonalityLabel,
+} from "@/domain/personality";
 import { formatMoney } from "@/lib/money";
 import { BRIEFING_DISCLAIMER } from "@/ai/prompts/briefing";
 
@@ -13,6 +20,14 @@ const BUCKETS: { key: keyof AllocationPercents; label: string }[] = [
   { key: "bonds", label: "Bonds" },
   { key: "equities", label: "Equities" },
   { key: "other", label: "Other" },
+];
+
+const BAND_ORDER: readonly PersonalityLabel[] = [
+  "capital_preserver",
+  "conservative",
+  "balanced",
+  "growth",
+  "aggressive",
 ];
 
 export default async function BriefingPage() {
@@ -65,8 +80,25 @@ export default async function BriefingPage() {
         <section>
           <h2 className="text-lg font-semibold">Target and current mix</h2>
           <p className="mt-1 text-sm text-stone-600">
-            Percentages come from your profile band and asset snapshots.
+            Long-term mix after reserves, compared with your profile band.
           </p>
+          {decision.emergencyReservedCents > 0 ||
+          decision.shortGoalReservedCents > 0 ? (
+            <p className="mt-2 text-sm text-stone-700">
+              Left out of this mix:{" "}
+              {decision.emergencyReservedCents > 0
+                ? `${formatMoney(decision.emergencyReservedCents, currency)} emergency fund`
+                : null}
+              {decision.emergencyReservedCents > 0 &&
+              decision.shortGoalReservedCents > 0
+                ? " and "
+                : null}
+              {decision.shortGoalReservedCents > 0
+                ? `${formatMoney(decision.shortGoalReservedCents, currency)} short-term goal reserve`
+                : null}
+              .
+            </p>
+          ) : null}
           <div className="mt-4 flex flex-col gap-4">
             {BUCKETS.map((bucket) => (
               <MixRow
@@ -77,6 +109,7 @@ export default async function BriefingPage() {
               />
             ))}
           </div>
+          <AllocationBandsTable currentLabel={decision.profileLabel} />
         </section>
 
         <footer className="border-t border-stone-200 pt-4">
@@ -106,7 +139,7 @@ function PropertyInMixNotice({
     <section className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
       <p>
         This mix includes {kind}. The allocation band is for investable money.
-        Open the asset to turn off Include in allocation.
+        Open the asset and turn off Count in investment mix.
       </p>
       <ul className="mt-2 flex flex-col gap-1">
         {holdings.map((holding) => (
@@ -154,6 +187,94 @@ function MixRow({
             style={{ width: `${Math.min(100, Math.max(0, target))}%` }}
           />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AllocationBandsTable({
+  currentLabel,
+}: {
+  currentLabel: PersonalityLabel;
+}) {
+  return (
+    <div className="mt-6">
+      <h3 className="text-base font-semibold text-stone-900">
+        Personality allocation bands
+      </h3>
+      <p className="mt-1 text-sm text-stone-600">
+        Long-term targets after the emergency fund and near-term goals.
+      </p>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[28rem] border-collapse text-left text-sm">
+          <caption className="sr-only">
+            Allocation bands by investor personality. Your profile row is
+            highlighted.
+          </caption>
+          <thead>
+            <tr className="border-b border-stone-200 text-stone-600">
+              <th scope="col" className="py-2 pr-3 font-medium">
+                Personality
+              </th>
+              <th scope="col" className="py-2 px-3 font-medium text-right">
+                Cash
+              </th>
+              <th scope="col" className="py-2 px-3 font-medium text-right">
+                Bonds
+              </th>
+              <th scope="col" className="py-2 px-3 font-medium text-right">
+                Equities
+              </th>
+              <th scope="col" className="py-2 pl-3 font-medium text-right">
+                Other
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {BAND_ORDER.map((label) => {
+              const band = ALLOCATION_BANDS[label];
+              const isCurrent = label === currentLabel;
+              const title = PERSONALITY_TITLES[label];
+              return (
+                <tr
+                  key={label}
+                  className={
+                    isCurrent
+                      ? "border-b border-stone-200 bg-teal-50"
+                      : "border-b border-stone-100"
+                  }
+                  aria-current={isCurrent ? "true" : undefined}
+                >
+                  <th
+                    scope="row"
+                    className={
+                      isCurrent
+                        ? "py-2 pr-3 font-medium text-teal-950"
+                        : "py-2 pr-3 font-medium text-stone-800"
+                    }
+                  >
+                    {title}
+                    {isCurrent ? (
+                      <span className="sr-only"> (your profile)</span>
+                    ) : null}
+                  </th>
+                  <td className="py-2 px-3 text-right tabular-nums text-stone-800">
+                    {band.cash}%
+                  </td>
+                  <td className="py-2 px-3 text-right tabular-nums text-stone-800">
+                    {band.bonds}%
+                  </td>
+                  <td className="py-2 px-3 text-right tabular-nums text-stone-800">
+                    {band.equities}%
+                  </td>
+                  <td className="py-2 pl-3 text-right tabular-nums text-stone-800">
+                    {band.other}%
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

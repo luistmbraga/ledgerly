@@ -48,7 +48,7 @@ export const briefingSchema = z.object({
 export const categorySuggestJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["categoryId", "confidence", "rationale"],
+  required: ["categoryId", "confidence", "rationale", "refused", "reason"],
   properties: {
     categoryId: { type: ["integer", "null"] },
     confidence: { type: "string", enum: ["low", "medium", "high"] },
@@ -61,7 +61,7 @@ export const categorySuggestJsonSchema = {
 export const tipsJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["tips"],
+  required: ["tips", "refused", "reason"],
   properties: {
     tips: {
       type: "array",
@@ -85,7 +85,7 @@ export const tipsJsonSchema = {
 export const goalExplainJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["summary", "steps"],
+  required: ["summary", "steps", "refused", "reason"],
   properties: {
     summary: { type: "string", maxLength: 500 },
     steps: {
@@ -101,7 +101,7 @@ export const goalExplainJsonSchema = {
 export const briefingJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["headline", "sections", "disclaimer"],
+  required: ["headline", "sections", "disclaimer", "refused", "reason"],
   properties: {
     headline: { type: "string", maxLength: 120 },
     sections: {
@@ -122,3 +122,84 @@ export const briefingJsonSchema = {
     reason: { type: "string", maxLength: 200 },
   },
 } as const;
+
+type JsonSchemaNode = Record<string, unknown>;
+
+/** Rewrite a JSON Schema for OpenAI strict mode (strip maxLength/maxItems, fix nullables). */
+export function toStrictSchema(schema: object): Record<string, unknown> {
+  return rewriteNode(structuredClone(schema) as JsonSchemaNode);
+}
+
+function rewriteNode(node: JsonSchemaNode): JsonSchemaNode {
+  const next: JsonSchemaNode = { ...node };
+  delete next.maxLength;
+  delete next.maxItems;
+  delete next.minLength;
+  delete next.minItems;
+
+  if (Array.isArray(next.type) && next.type.includes("null")) {
+    const nonNull = (next.type as string[]).filter((t) => t !== "null");
+    const { type: _type, ...rest } = next;
+    if (nonNull.length === 1) {
+      return {
+        anyOf: [{ type: nonNull[0], ...rest }, { type: "null" }],
+      };
+    }
+  }
+
+  if (next.properties && typeof next.properties === "object") {
+    const props = next.properties as Record<string, JsonSchemaNode>;
+    const rewritten: Record<string, JsonSchemaNode> = {};
+    for (const [key, value] of Object.entries(props)) {
+      rewritten[key] = rewriteNode(value);
+    }
+    next.properties = rewritten;
+    next.additionalProperties = false;
+    if (!Array.isArray(next.required)) {
+      next.required = Object.keys(rewritten);
+    }
+  }
+
+  if (next.items && typeof next.items === "object") {
+    next.items = rewriteNode(next.items as JsonSchemaNode);
+  }
+
+  if (Array.isArray(next.anyOf)) {
+    next.anyOf = (next.anyOf as JsonSchemaNode[]).map(rewriteNode);
+  }
+
+  return next;
+}
+
+/** Per-request schema; `runAiTask` applies `toStrictSchema`. */
+export function categorySuggestSchemaForIds(
+  categoryIds: readonly number[],
+): Record<string, unknown> {
+  const base = structuredClone(categorySuggestJsonSchema) as JsonSchemaNode;
+  const props = base.properties as Record<string, JsonSchemaNode>;
+  props.categoryId =
+    categoryIds.length === 0
+      ? { type: "null" }
+      : {
+          anyOf: [
+            { type: "integer", enum: [...categoryIds] },
+            { type: "null" },
+          ],
+        };
+  return base;
+}
+
+/** Per-request schema; `runAiTask` applies `toStrictSchema`. */
+export function tipsSchemaForFindingIds(
+  findingIds: readonly string[],
+): Record<string, unknown> {
+  const base = structuredClone(tipsJsonSchema) as JsonSchemaNode;
+  const tips = (base.properties as Record<string, JsonSchemaNode>)
+    .tips as JsonSchemaNode;
+  const items = tips.items as JsonSchemaNode;
+  const props = items.properties as Record<string, JsonSchemaNode>;
+  if (findingIds.length > 0) {
+    props.findingId = { type: "string", enum: [...findingIds] };
+  }
+  return base;
+}

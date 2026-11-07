@@ -7,11 +7,11 @@ Global env: `AI_API_KEY`, optional `AI_BASE_URL` (default OpenAI), `AI_MODEL` (d
 Global rules:
 
 1. **Refusal:** If asked to recommend specific securities, predict returns, or give tax/legal advice, respond with JSON that sets `refused: true` and a short `reason` (still valid schema).
-2. **Numbers:** Every number in output must appear in input or be a non-financial count (e.g. bullet count).
+2. **Numbers:** Quote **display strings** from the input (formatted money and percents). Every number in output must appear in those quotable strings (or the expense note for category suggest). Do not invent figures.
 3. **Language:** English.
 4. **Tone:** Calm, educational, second person ("you").
-5. **Length:** Respect max fields below.
-6. **Cache:** Store output in `ai_results` keyed by `task`, `entity_id`, `input_hash`, `prompt_version`.
+5. **Length:** Respect max fields below (enforced in Zod; wire schema uses OpenAI strict mode without maxLength).
+6. **Cache:** Store output in `ai_results` keyed by `task`, `entity_id`, `input_hash` (includes model id), `prompt_version`.
 
 Prompt version constant per task: bump when instructions change.
 
@@ -26,11 +26,8 @@ Prompt version constant per task: bump when instructions change.
 ```json
 {
   "task": "category_suggest",
-  "promptVersion": "category_suggest_v1",
+  "promptVersion": "category_suggest_v2",
   "expense": {
-    "id": 42,
-    "amountCents": 1250,
-    "occurredOn": "2026-03-01",
     "note": "Uber airport"
   },
   "categories": [
@@ -42,12 +39,14 @@ Prompt version constant per task: bump when instructions change.
 }
 ```
 
+Amount and date are omitted so they do not bias the label. Note truncated to 500 chars.
+
 ### Output schema
 
 ```json
 {
   "type": "object",
-  "required": ["categoryId", "confidence", "rationale"],
+  "required": ["categoryId", "confidence", "rationale", "refused", "reason"],
   "properties": {
     "categoryId": { "type": ["integer", "null"] },
     "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
@@ -57,6 +56,8 @@ Prompt version constant per task: bump when instructions change.
   }
 }
 ```
+
+Per-request wire schema constrains `categoryId` to the ids in `categories` (plus null). Temperature `0`.
 
 **UI:** Show suggestion; user must confirm before save. If `categoryId` null, show rationale only.
 
@@ -73,19 +74,48 @@ Prompt version constant per task: bump when instructions change.
 ```json
 {
   "task": "tips",
-  "promptVersion": "tips_v1",
-  "snapshot": { "...": "FinancialSnapshot subset: currency, cashflow, emergencyFund, findings only" }
+  "promptVersion": "tips_v2",
+  "snapshot": {
+    "currency": "EUR",
+    "cashflow": {
+      "trailingMonths": "3",
+      "income": "€100.00",
+      "expense": "€90.00",
+      "surplus": "€10.00",
+      "savingsRate": "10%",
+      "essentialMonthlyAverage": "€30.00",
+      "discretionaryShareOfExpenses": null,
+      "uncategorizedExpenseShare": null
+    },
+    "emergencyFund": {
+      "targetMonths": "6",
+      "target": "€0.00",
+      "eligible": "€0.00",
+      "fundedRatio": "100%",
+      "gap": "€0.00",
+      "avgMonthlySurplus": "€0.00",
+      "monthsToCloseGap": null
+    },
+    "findings": [
+      {
+        "id": "emergency_fund_met",
+        "severity": "info",
+        "gloss": "emergency fund meets its target",
+        "data": { "fundedRatio": "100%", "currency": "EUR" }
+      }
+    ]
+  }
 }
 ```
 
-Pass `snapshot.findings` fully; pass cashflow and emergency numbers from snapshot (already computed).
+Amounts and ratios are preformatted display strings. Finding ids include a short gloss.
 
 ### Output schema
 
 ```json
 {
   "type": "object",
-  "required": ["tips"],
+  "required": ["tips", "refused", "reason"],
   "properties": {
     "tips": {
       "type": "array",
@@ -106,7 +136,7 @@ Pass `snapshot.findings` fully; pass cashflow and emergency numbers from snapsho
 }
 ```
 
-**Rule:** One tip per finding id maximum; skip findings not present in input.
+**Rule:** One tip per finding id maximum; skip findings not present in input. Invalid tips (unknown id, duplicate, or invented numbers) are dropped; remaining tips are kept. If none remain, use templates.
 
 **Fallback without AI:** template map:
 
@@ -126,47 +156,29 @@ Pass `snapshot.findings` fully; pass cashflow and emergency numbers from snapsho
 ```json
 {
   "task": "goal_explain",
-  "promptVersion": "goal_explain_v1",
+  "promptVersion": "goal_explain_v2",
   "goal": {
-    "id": 1,
     "name": "House deposit",
     "bucket": "mid",
-    "targetAmountCents": 5000000,
+    "bucketGloss": "medium horizon",
+    "targetAmount": "€50,000.00",
     "targetDate": "2028-06-01",
-    "setAsideCents": 800000,
-    "remainingCents": 4200000,
-    "requiredMonthlyCents": 150000,
+    "setAside": "€8,000.00",
+    "remaining": "€42,000.00",
+    "requiredMonthly": "€1,500.00",
     "status": "shortfall",
-    "plannedMonthlyCents": 100000,
-    "expectedAnnualReturnBps": 300
+    "statusGloss": "current pace is behind the calculated monthly amount",
+    "plannedMonthly": "€1,000.00",
+    "expectedAnnualReturn": "3%"
   },
   "context": {
     "currency": "EUR",
-    "avgMonthlySurplusCents": 120000
+    "avgMonthlySurplus": "€1,200.00"
   }
 }
 ```
 
-### Output schema
-
-```json
-{
-  "type": "object",
-  "required": ["summary", "steps"],
-  "properties": {
-    "summary": { "type": "string", "maxLength": 500 },
-    "steps": {
-      "type": "array",
-      "maxItems": 5,
-      "items": { "type": "string", "maxLength": 200 }
-    },
-    "refused": { "type": "boolean" },
-    "reason": { "type": "string", "maxLength": 200 }
-  }
-}
-```
-
-**Rule:** Do not change `requiredMonthlyCents` or status; explain only.
+**Rule:** Do not change status or invent amounts; explain only. One repair call on schema/accept failure, then fallback.
 
 ---
 
@@ -179,35 +191,37 @@ Pass `snapshot.findings` fully; pass cashflow and emergency numbers from snapsho
 ```json
 {
   "task": "briefing",
-  "promptVersion": "briefing_v1",
+  "promptVersion": "briefing_v2",
   "disclaimerRequired": true,
   "decision": {
     "priorities": [
-      "build_emergency_fund",
-      "reserve_short_goals",
-      "align_to_band"
+      { "id": "build_emergency_fund", "gloss": "fill the emergency gap before adding risk" },
+      { "id": "reserve_short_goals", "gloss": "keep short-horizon goal money in cash-like holdings" },
+      { "id": "align_to_band", "gloss": "move the investable mix toward the profile band" }
     ],
-    "targetBand": { "cash": 15, "bonds": 35, "equities": 45, "other": 5 },
-    "currentMixPercent": { "cash": 40, "bonds": 0, "equities": 50, "other": 10 },
-    "drift": { "cash": 25, "bonds": -35, "equities": 5, "other": 5 },
-    "emergencyGapCents": 300000,
-    "shortGoalRemainingCents": 1000000,
+    "targetBand": { "cash": "15%", "bonds": "35%", "equities": "45%", "other": "5%" },
+    "currentMixPercent": { "cash": "40%", "bonds": "0%", "equities": "50%", "other": "10%" },
+    "drift": { "cash": "25 pp", "bonds": "-35 pp", "equities": "5 pp", "other": "5 pp" },
+    "emergencyGap": "€3,000.00",
+    "emergencyReserved": "€2,000.00",
+    "shortGoalRemaining": "€10,000.00",
+    "shortGoalReserved": "€1,500.00",
     "profileLabel": "balanced",
     "profileTitle": "Balanced"
   },
-  "snapshotNetWorthCents": 25000000,
+  "snapshotNetWorth": "€250,000.00",
   "currency": "EUR"
 }
 ```
 
-`decision` object is built in code (`domain/allocation.ts` + briefing service)—**not** by LLM.
+`decision` object is built in code (`domain/allocation.ts` + briefing service)—**not** by LLM. One repair call on schema/accept/prohibited failure, then fallback.
 
 ### Output schema
 
 ```json
 {
   "type": "object",
-  "required": ["headline", "sections", "disclaimer"],
+  "required": ["headline", "sections", "disclaimer", "refused", "reason"],
   "properties": {
     "headline": { "type": "string", "maxLength": 120 },
     "sections": {
@@ -247,15 +261,19 @@ Respond with JSON matching the schema exactly.
 
 Task-specific user message: `JSON.stringify(input)`.
 
+Sampling: category suggest temperature `0`; narration tasks `0.2`. Strict JSON schema on the wire.
+
 ---
 
 ## Error handling
 
 | Condition | Behavior |
 |-----------|----------|
-| HTTP error / timeout | Retry once; then fallback templates |
+| Timeout / 429 / 5xx | Retry once; then fallback templates |
+| 4xx (except 429) | Fail once; fallback (no retry) |
 | Invalid JSON | Log; fallback |
-| Schema validation fail | Discard; fallback |
+| Schema validation fail | Briefing/goal: one repair call; then fallback. Category: fallback. |
+| Invented numbers / prohibited briefing text | Briefing/goal: one repair call; then fallback. Tips: drop bad tips; fallback only if none remain. |
 | `refused: true` | Show reason + fallback template for that task |
 
 ---
@@ -270,4 +288,5 @@ Task-specific user message: `JSON.stringify(input)`.
 ## Testing
 
 - Mock LLM returns fixture JSON per task.
-- Assert validator rejects output with extra numeric claims (spot check tests).
+- Assert validator accepts display-string quotes (`€3,000.00`, `10%`) and rejects invented numbers.
+- Assert partial tips keep valid items; 400 is not retried; model id affects cache key.

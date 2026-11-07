@@ -27,7 +27,7 @@ Desktop-first responsive layout. Primary navigation: persistent sidebar (collaps
 | `/` | Dashboard |
 | `/assets` | Assets list + detail |
 | `/liabilities` | Liabilities list + detail |
-| `/activity` | Tabs: Expenses, Income, Invoices |
+| `/activity` | Tabs: Expenses, Income |
 | `/emergency-fund` | Emergency fund |
 | `/goals` | Goals list |
 | `/goals/[id]` | Goal detail |
@@ -63,7 +63,7 @@ Desktop-first responsive layout. Primary navigation: persistent sidebar (collaps
 - Current value (from latest snapshot)
 - Snapshot history table
 - Form: new snapshot (date, amount, note)
-- Flags: Liquid (emergency fund), Include in allocation
+- Flags: Liquid (emergency fund), Count in investment mix
 - Edit name/type, delete asset
 
 **Empty list:** Explain that snapshots drive net worth.
@@ -80,19 +80,13 @@ Mirror assets pattern without liquid/allocation flags.
 
 Tab **Expenses**
 
-- Table: date, category, amount, note
-- Add/edit expense; category dropdown; optional "Suggest category" (slice 09)
+- Table: date, category, amount, cash account, note
+- Add/edit expense; category dropdown; optional cash account (cash assets only); optional "Suggest category" (slice 09)
 - Highlight uncategorized rows
 
 Tab **Income**
 
-- Same pattern with income categories
-
-Tab **Invoices**
-
-- Table: direction, counterparty, due date, amount, status
-- Add invoice; actions: Mark paid, Cancel
-- Mark paid: confirm; create linked income (receivable) or expense (payable) with prefilled amount/date
+- Same pattern with income categories and optional cash account
 
 **Empty tabs:** Short explanation + add button.
 
@@ -161,6 +155,7 @@ Tab **Invoices**
 
 - Headline + sections (from AI or template from `decision`)
 - Target allocation vs current mix (bar chart, percentages from code)
+- Full personality allocation band table (all five labels; saved profile row highlighted)
 - Priority callouts: emergency gap, short goals
 - **Disclaimer** always visible at bottom (fixed text from ai-contracts)
 
@@ -194,7 +189,6 @@ Tab **Invoices**
 |----------|------|
 | Personality disclaimer | "This quiz is a self-assessment for educational purposes. It is not a psychological or regulatory suitability test." |
 | Briefing gate | "Complete the investor personality quiz to unlock your briefing." |
-| Invoice paid | "This will record an income/expense entry for today. You can edit the date in Activity." |
 
 ---
 

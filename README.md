@@ -1,6 +1,6 @@
 # Ledgerly
 
-Personal finance web app for a single user: track net worth (assets and liabilities), income and expenses, invoices, emergency fund progress, financial goals, and a self-assessment investor profile. Rule-based calculators always run locally; optional AI narrates tips and briefings from numbers the app already computed.
+Personal finance web app for a single user: track net worth (assets and liabilities), income and expenses, emergency fund progress, financial goals, and a self-assessment investor profile. Rule-based calculators always run locally; optional AI narrates tips and briefings from numbers the app already computed.
 
 **Status:** documentation-first. Application code is built slice by slice from [docs/roadmap.md](docs/roadmap.md).
 

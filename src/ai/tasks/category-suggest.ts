@@ -10,8 +10,8 @@ import {
 } from "../prompts/category-suggest";
 import { runAiTask, type TaskDeps, type TaskResult } from "../run-task";
 import {
-  categorySuggestJsonSchema,
   categorySuggestSchema,
+  categorySuggestSchemaForIds,
 } from "../schemas";
 import { numbersMissingFromInput } from "../validate";
 import type { CategorySuggestOutput } from "../fallbacks";
@@ -26,14 +26,12 @@ export type CategorySuggestRequest = {
 };
 
 function contractInput(request: CategorySuggestRequest) {
+  const note = request.note.slice(0, 500);
   return {
     task: "category_suggest" as const,
     promptVersion: CATEGORY_SUGGEST_VERSION,
     expense: {
-      id: request.expenseId,
-      amountCents: request.amountCents,
-      occurredOn: request.occurredOn,
-      note: request.note.slice(0, 500),
+      note,
     },
     categories: request.categories.map((category) => ({
       id: category.id,
@@ -47,22 +45,31 @@ function contractInput(request: CategorySuggestRequest) {
   };
 }
 
+function quotableFrom(input: ReturnType<typeof contractInput>): string[] {
+  return [input.expense.note];
+}
+
 export async function suggestCategory(
   request: CategorySuggestRequest,
   deps?: TaskDeps,
 ): Promise<TaskResult<CategorySuggestOutput>> {
   const input = contractInput(request);
   const allowedIds = new Set(request.categories.map((category) => category.id));
+  const quotable = quotableFrom(input);
   return runAiTask({
     task: "category_suggest",
     entityId: request.expenseId === null ? "draft" : String(request.expenseId),
     promptVersion: CATEGORY_SUGGEST_VERSION,
     instructions: CATEGORY_SUGGEST_INSTRUCTIONS,
     schemaName: "category_suggest",
-    jsonSchema: categorySuggestJsonSchema,
+    jsonSchema: categorySuggestSchemaForIds(
+      request.categories.map((category) => category.id),
+    ),
     zodSchema: categorySuggestSchema,
     input,
     deps,
+    temperature: 0,
+    maxTokens: 200,
     fallback: () =>
       categorySuggestFallback(
         suggestCategoryFallback({
@@ -76,7 +83,7 @@ export async function suggestCategory(
       if (value.categoryId !== null && !allowedIds.has(value.categoryId)) {
         return false;
       }
-      return numbersMissingFromInput(input, value).length === 0;
+      return numbersMissingFromInput(quotable, value).length === 0;
     },
   });
 }

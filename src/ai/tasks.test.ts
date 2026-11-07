@@ -12,6 +12,7 @@ import {
   numbersMissingFromInput,
 } from "./validate";
 import type { BriefingDecision } from "@/domain/allocation";
+import { formatMoney } from "@/lib/money";
 
 const keyEnv = { AI_API_KEY: "test-key", AI_BASE_URL: "https://example.test/v1" };
 const noKeyEnv = { AI_API_KEY: "" };
@@ -31,7 +32,9 @@ const decision: BriefingDecision = {
   currentMixPercent: { cash: 40, bonds: 0, equities: 50, other: 10 },
   drift: { cash: 25, bonds: -35, equities: 5, other: 5 },
   emergencyGapCents: 300_000,
+  emergencyReservedCents: 200_000,
   shortGoalRemainingCents: 1_000_000,
+  shortGoalReservedCents: 150_000,
   profileLabel: "balanced",
   profileTitle: "Balanced",
 };
@@ -43,6 +46,49 @@ const categoryRequest = {
   note: "Uber airport",
   categories: [{ id: 4, name: "Transport", isEssential: false }],
   recentExpenses: [],
+};
+
+const tipsBase = {
+  currency: "EUR",
+  cashflow: {
+    trailingMonths: 3 as const,
+    incomeCents: 10000,
+    expenseCents: 9000,
+    surplusCents: 1000,
+    savingsRate: 0.1,
+    essentialMonthlyAverageCents: 3000,
+    discretionaryShareOfExpenses: null,
+    uncategorizedExpenseShare: null,
+  },
+  emergencyFund: {
+    targetMonths: 6,
+    targetCents: 300_000,
+    eligibleCents: 0,
+    fundedRatio: 0,
+    gapCents: 300_000,
+    avgMonthlySurplusCents: 0,
+    monthsToCloseGap: null,
+  },
+  findings: [
+    {
+      id: "low_savings_rate",
+      severity: "warn" as const,
+      data: {
+        savingsRate: 0.1,
+        incomeCents: 10000,
+        surplusCents: 1000,
+      },
+    },
+    {
+      id: "emergency_fund_gap",
+      severity: "warn" as const,
+      data: {
+        gapCents: 300_000,
+        fundedRatio: 0,
+        currency: "EUR",
+      },
+    },
+  ],
 };
 
 describe("readAiConfig", () => {
@@ -77,10 +123,23 @@ describe("validators", () => {
     ).toBe("AAPL");
   });
 
-  it("rejects numbers that are not in the input", () => {
+  it("rejects numbers that are not in the quotable text", () => {
     expect(
-      numbersMissingFromInput({ amountCents: 1250 }, { rationale: "Save 99999." }),
+      numbersMissingFromInput(
+        { amount: formatMoney(1250, "EUR") },
+        { rationale: "Save 99999." },
+      ),
     ).toEqual(["99999"]);
+  });
+
+  it("accepts formatted money and percent quotes", () => {
+    const gap = formatMoney(300_000, "EUR");
+    expect(
+      numbersMissingFromInput(
+        { gap, savingsRate: "10%" },
+        { body: `Your gap is ${gap} and savings rate is 10%.` },
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -171,6 +230,8 @@ describe("AI tasks with a mocked API", () => {
         categoryId: 4,
         confidence: "high",
         rationale: "The note matches transport.",
+        refused: false,
+        reason: "",
       }),
     );
     const result = await suggestCategory(categoryRequest, {
@@ -188,6 +249,8 @@ describe("AI tasks with a mocked API", () => {
         categoryId: 99,
         confidence: "high",
         rationale: "Unknown.",
+        refused: false,
+        reason: "",
       }),
     );
     const result = await suggestCategory(categoryRequest, {
@@ -196,15 +259,16 @@ describe("AI tasks with a mocked API", () => {
       store: memoryAiResultStore(),
     });
     expect(result.source).toBe("fallback");
-    expect(result.output.categoryId).toBe(4);
   });
 
-  it("rejects a briefing that mentions AAPL and uses the template", async () => {
+  it("rejects a briefing that mentions AAPL after repair still fails", async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () =>
       jsonResponse({
         headline: "Buy AAPL",
         sections: [{ heading: "Trade", body: "Add AAPL now." }],
         disclaimer: BRIEFING_DISCLAIMER,
+        refused: false,
+        reason: "",
       }),
     );
     const result = await narrateBriefing(
@@ -214,6 +278,7 @@ describe("AI tasks with a mocked API", () => {
     expect(result.source).toBe("fallback");
     expect(result.output.headline).not.toContain("AAPL");
     expect(result.output.disclaimer).toBe(BRIEFING_DISCLAIMER);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it("rejects output that introduces a new number", async () => {
@@ -222,6 +287,8 @@ describe("AI tasks with a mocked API", () => {
         categoryId: 4,
         confidence: "high",
         rationale: "Save 99999 more.",
+        refused: false,
+        reason: "",
       }),
     );
     const result = await suggestCategory(categoryRequest, {
@@ -232,12 +299,73 @@ describe("AI tasks with a mocked API", () => {
     expect(result.source).toBe("fallback");
   });
 
+  it("accepts a tip that quotes formatted money and percents", async () => {
+    const gap = formatMoney(300_000, "EUR");
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        tips: [
+          {
+            findingId: "low_savings_rate",
+            title: "Low savings rate",
+            body: "Your savings rate is 10% over the last 3 months.",
+          },
+          {
+            findingId: "emergency_fund_gap",
+            title: "Emergency gap",
+            body: `Your emergency fund is short ${gap}.`,
+          },
+        ],
+        refused: false,
+        reason: "",
+      }),
+    );
+    const result = await narrateTips(tipsBase, {
+      env: keyEnv,
+      fetchImpl,
+      store: memoryAiResultStore(),
+    });
+    expect(result.source).toBe("ai");
+    expect(result.output.tips).toHaveLength(2);
+    expect(result.output.tips[1]?.body).toContain(gap);
+  });
+
+  it("keeps valid tips and drops one with an invented number", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        tips: [
+          {
+            findingId: "low_savings_rate",
+            title: "Low savings rate",
+            body: "Your savings rate is 10%.",
+          },
+          {
+            findingId: "emergency_fund_gap",
+            title: "Bad tip",
+            body: "You need 99999 more somehow.",
+          },
+        ],
+        refused: false,
+        reason: "",
+      }),
+    );
+    const result = await narrateTips(tipsBase, {
+      env: keyEnv,
+      fetchImpl,
+      store: memoryAiResultStore(),
+    });
+    expect(result.source).toBe("ai");
+    expect(result.output.tips).toHaveLength(1);
+    expect(result.output.tips[0]?.findingId).toBe("low_savings_rate");
+  });
+
   it("serves the second call from cache", async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () =>
       jsonResponse({
         categoryId: 4,
         confidence: "medium",
         rationale: "The note matches transport.",
+        refused: false,
+        reason: "",
       }),
     );
     const store = memoryAiResultStore();
@@ -250,7 +378,33 @@ describe("AI tasks with a mocked API", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it("retries a failed request once", async () => {
+  it("does not share cache across AI_MODEL values", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        categoryId: 4,
+        confidence: "medium",
+        rationale: "The note matches transport.",
+        refused: false,
+        reason: "",
+      }),
+    );
+    const store = memoryAiResultStore();
+    const first = await suggestCategory(categoryRequest, {
+      env: { ...keyEnv, AI_MODEL: "gpt-4o-mini" },
+      fetchImpl,
+      store,
+    });
+    const second = await suggestCategory(categoryRequest, {
+      env: { ...keyEnv, AI_MODEL: "gpt-4o" },
+      fetchImpl,
+      store,
+    });
+    expect(first.source).toBe("ai");
+    expect(second.source).toBe("ai");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a 500 once", async () => {
     let calls = 0;
     const fetchImpl = vi.fn<typeof fetch>(async () => {
       calls += 1;
@@ -259,6 +413,8 @@ describe("AI tasks with a mocked API", () => {
         categoryId: 4,
         confidence: "low",
         rationale: "Matched.",
+        refused: false,
+        reason: "",
       });
     });
     const result = await suggestCategory(categoryRequest, {
@@ -269,10 +425,23 @@ describe("AI tasks with a mocked API", () => {
     expect(result.source).toBe("ai");
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
+
+  it("does not retry a 400", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ error: "bad schema" }, 400),
+    );
+    const result = await suggestCategory(categoryRequest, {
+      env: keyEnv,
+      fetchImpl,
+      store: memoryAiResultStore(),
+    });
+    expect(result.source).toBe("fallback");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("completeJson", () => {
-  it("returns an error when both attempts fail", async () => {
+  it("returns an error when both attempts fail on 503", async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({}, 503));
     const result = await completeJson({
       config: {
@@ -288,5 +457,23 @@ describe("completeJson", () => {
     });
     expect(result.ok).toBe(false);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a 400", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({}, 400));
+    const result = await completeJson({
+      config: {
+        apiKey: "test-key",
+        baseUrl: "https://example.test/v1",
+        model: "gpt-4o-mini",
+      },
+      system: "system",
+      user: "{}",
+      schemaName: "category_suggest",
+      schema: { type: "object" },
+      fetchImpl,
+    });
+    expect(result.ok).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
