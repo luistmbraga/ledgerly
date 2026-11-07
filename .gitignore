@@ -3,3 +3,4 @@ data/
 .env.local
 node_modules
 .next
+tsconfig.tsbuildinfo
