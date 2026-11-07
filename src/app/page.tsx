@@ -6,7 +6,8 @@ import { todayUtc } from "@/lib/dates";
 import { getDashboardSummary } from "@/services/dashboard-summary";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
 import { narrateDashboardTips } from "@/ai/tasks/tips";
-import { getDashboardTips, type DashboardTip } from "@/services/tips-service";
+import type { DashboardTip } from "@/services/tips-service";
+import { refreshTipsAction } from "./ai-actions";
 import { ASSET_TYPE_LABELS } from "./assets/labels";
 import { BucketBadge, StatusChip } from "./goals/goal-bits";
 import { loadGoals } from "./goals/load";
@@ -14,23 +15,15 @@ import { loadGoals } from "./goals/load";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ tips?: string }>;
-}) {
-  const params = await searchParams;
+export default async function DashboardPage() {
   const asOfDate = todayUtc();
   const summary = getDashboardSummary();
   const fund = getEmergencyFund(asOfDate);
   const goals = loadGoals(asOfDate);
-  const refreshed = params.tips === "1";
-  const narrated = refreshed ? await narrateDashboardTips(asOfDate) : null;
-  const tips = narrated
-    ? narrated.tips
-    : getDashboardTips(asOfDate);
-  const tipSource = narrated?.source ?? "fallback";
-  const tipRefusal = narrated?.refusalReason;
+  const narrated = await narrateDashboardTips(asOfDate, { skipAi: true });
+  const tips = narrated.tips;
+  const tipSource = narrated.source;
+  const tipRefusal = narrated.refusalReason;
   const { netWorth, currency } = summary;
   const hasAssets = summary.assetCount > 0;
   const funded = fund.targetCents > 0 && fund.gapCents === 0;
@@ -196,8 +189,7 @@ function TipsPanel({
             {badge}
           </span>
         </div>
-        <form action="/" method="get">
-          <input type="hidden" name="tips" value="1" />
+        <form action={refreshTipsAction}>
           <button
             type="submit"
             className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"

@@ -8,6 +8,7 @@ import { deleteGoalAction, updateGoalAction } from "../actions";
 import { BucketBadge, StatusChip } from "../goal-bits";
 import { GoalForm, percentDefault } from "../goal-form";
 import { explainGoal } from "@/ai/tasks/goal-explain";
+import { explainGoalAction } from "@/app/ai-actions";
 import { formatIsoDate, goalTemplateExplanation } from "../labels";
 import { loadGoals } from "../load";
 
@@ -24,7 +25,7 @@ export default async function GoalDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; saved?: string; explain?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string }>;
 }) {
   const { id: rawId } = await params;
   const query = await searchParams;
@@ -37,26 +38,26 @@ export default async function GoalDetailPage({
   if (!view) notFound();
   const { feasibility } = view;
   const saved = query.saved ? SAVED[query.saved] : undefined;
-  const explained =
-    query.explain === "1"
-      ? await explainGoal({
-          currency: board.currency,
-          avgMonthlySurplusCents: board.avgMonthlySurplusCents,
-          goal: {
-            id: goal.id,
-            name: goal.name,
-            bucket: feasibility.bucket,
-            targetAmountCents: goal.targetAmountCents,
-            targetDate: goal.targetDate,
-            setAsideCents: goal.setAsideCents,
-            remainingCents: feasibility.remainingCents,
-            requiredMonthlyCents: feasibility.requiredMonthlyCents,
-            status: feasibility.status,
-            plannedMonthlyCents: goal.plannedMonthlyCents,
-            expectedAnnualReturnBps: goal.expectedAnnualReturnBps,
-          },
-        })
-      : null;
+  const explained = await explainGoal(
+    {
+      currency: board.currency,
+      avgMonthlySurplusCents: board.avgMonthlySurplusCents,
+      goal: {
+        id: goal.id,
+        name: goal.name,
+        bucket: feasibility.bucket,
+        targetAmountCents: goal.targetAmountCents,
+        targetDate: goal.targetDate,
+        setAsideCents: goal.setAsideCents,
+        remainingCents: feasibility.remainingCents,
+        requiredMonthlyCents: feasibility.requiredMonthlyCents,
+        status: feasibility.status,
+        plannedMonthlyCents: goal.plannedMonthlyCents,
+        expectedAnnualReturnBps: goal.expectedAnnualReturnBps,
+      },
+    },
+    { skipAi: true },
+  );
   const explanationBadge = explained
     ? explained.source === "fallback"
       ? "Template"
@@ -143,8 +144,8 @@ export default async function GoalDetailPage({
         <section className="max-w-2xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">Explanation</h2>
-            <form action={`/goals/${goal.id}`} method="get">
-              <input type="hidden" name="explain" value="1" />
+            <form action={explainGoalAction}>
+              <input type="hidden" name="goalId" value={goal.id} />
               <button
                 type="submit"
                 className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"

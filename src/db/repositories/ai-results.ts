@@ -1,6 +1,9 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, lt, sql } from "drizzle-orm";
 import { db } from "../client";
 import { aiResults, type AiResultRow } from "../schema";
+
+const EVICT_DAYS = 30;
+const DAILY_AI_LIMIT = 20;
 
 export type StoredAiResult = {
   task: string;
@@ -29,6 +32,24 @@ function fromRow(row: AiResultRow): StoredAiResult {
   };
 }
 
+function evictOldRows(): void {
+  const cutoff = new Date(Date.now() - EVICT_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  db.delete(aiResults).where(lt(aiResults.createdAt, cutoff)).run();
+}
+
+export function countTodayRows(): number {
+  const today = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const row = db
+    .select({ n: sql<number>`count(*)` })
+    .from(aiResults)
+    .where(and(sql`${aiResults.createdAt} >= ${today}`, sql`${aiResults.createdAt} < ${tomorrow}`))
+    .get();
+  return row?.n ?? 0;
+}
+
+export { DAILY_AI_LIMIT };
+
 export const aiResultStore: AiResultStore = {
   find(task, entityId, inputHash) {
     const row = db
@@ -47,8 +68,7 @@ export const aiResultStore: AiResultStore = {
     return row ? fromRow(row) : null;
   },
   save(row) {
-    const existing = aiResultStore.find(row.task, row.entityId, row.inputHash);
-    if (existing) return;
+    const now = new Date().toISOString();
     db.insert(aiResults)
       .values({
         task: row.task,
@@ -56,9 +76,14 @@ export const aiResultStore: AiResultStore = {
         inputHash: row.inputHash,
         promptVersion: row.promptVersion,
         outputJson: row.outputJson,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [aiResults.task, aiResults.entityId, aiResults.inputHash],
+        set: { promptVersion: row.promptVersion, outputJson: row.outputJson },
       })
       .run();
+    evictOldRows();
   },
 };
 

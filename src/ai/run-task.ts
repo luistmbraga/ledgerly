@@ -1,5 +1,6 @@
 import type { ZodType } from "zod";
 import type { AiResultStore } from "@/db/repositories/ai-results";
+import { DOMAIN_VERSION } from "@/domain/financial-snapshot";
 import { completeJson, readAiConfig } from "./client";
 import { hashInput } from "./hash";
 import { AI_SYSTEM_PROMPT } from "./prompts/system";
@@ -12,6 +13,8 @@ export type TaskDeps = {
   fetchImpl?: typeof fetch;
   env?: Record<string, string | undefined>;
   timeoutMs?: number;
+  /** When true, only serve from cache; skip the AI network call. */
+  skipAi?: boolean;
 };
 
 export type TaskResult<T> = {
@@ -71,6 +74,8 @@ export async function runAiTask<T extends ModelObject>(options: {
   const inputHash = hashInput({
     input: options.input,
     model: config?.model ?? null,
+    promptVersion: options.promptVersion,
+    domainVersion: DOMAIN_VERSION,
   });
   const cached = store.find(options.task, options.entityId, inputHash);
   if (cached && cached.promptVersion === options.promptVersion) {
@@ -95,7 +100,15 @@ export async function runAiTask<T extends ModelObject>(options: {
     refusalReason,
   });
 
+  if (options.deps?.skipAi) return makeFallback();
   if (!config) return makeFallback();
+
+  if (!options.deps?.store) {
+    const { countTodayRows, DAILY_AI_LIMIT } = await import(
+      "@/db/repositories/ai-results"
+    );
+    if (countTodayRows() >= DAILY_AI_LIMIT) return makeFallback();
+  }
 
   const system = `${AI_SYSTEM_PROMPT}\n${options.instructions}`;
   const schema = toStrictSchema(options.jsonSchema);

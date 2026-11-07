@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { todayUtc } from "@/lib/dates";
 import { loadBriefing, type PropertyOrVehicleInMix } from "@/ai/tasks/briefing";
+import { refreshBriefingAction } from "@/app/ai-actions";
 import {
   ALLOCATION_BANDS,
   type AllocationPercents,
@@ -32,7 +33,7 @@ const BAND_ORDER: readonly PersonalityLabel[] = [
 ];
 
 export default async function BriefingPage() {
-  const briefing = await loadBriefing(todayUtc());
+  const briefing = await loadBriefing(todayUtc(), { skipAi: true });
   if (!briefing) redirect("/personality");
 
   const { decision, currency, narration, propertyOrVehiclesInMix } = briefing;
@@ -41,11 +42,21 @@ export default async function BriefingPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8">
       <header className="border-b border-stone-200 pb-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">Briefing</h1>
-          <span className="inline-flex rounded-full border border-stone-300 bg-white px-2 py-0.5 text-xs font-medium text-stone-700">
-            {badge}
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">Briefing</h1>
+            <span className="inline-flex rounded-full border border-stone-300 bg-white px-2 py-0.5 text-xs font-medium text-stone-700">
+              {badge}
+            </span>
+          </div>
+          <form action={refreshBriefingAction}>
+            <button
+              type="submit"
+              className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+            >
+              Refresh
+            </button>
+          </form>
         </div>
         <p className="mt-2 text-lg text-stone-900">{narration.output.headline}</p>
       </header>

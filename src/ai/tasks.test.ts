@@ -110,6 +110,20 @@ describe("hashInput", () => {
       hashInput({ a: { c: 3, d: 2 }, b: 1 }),
     );
   });
+
+  it("produces different hashes for different promptVersion values", () => {
+    const base = { input: { a: 1 }, model: "gpt-4o-mini", domainVersion: "2026-01-01" };
+    expect(hashInput({ ...base, promptVersion: "v1" })).not.toBe(
+      hashInput({ ...base, promptVersion: "v2" }),
+    );
+  });
+
+  it("produces different hashes for different domainVersion values", () => {
+    const base = { input: { a: 1 }, model: "gpt-4o-mini", promptVersion: "v1" };
+    expect(hashInput({ ...base, domainVersion: "2026-01-01" })).not.toBe(
+      hashInput({ ...base, domainVersion: "2026-06-01" }),
+    );
+  });
 });
 
 describe("validators", () => {
@@ -402,6 +416,34 @@ describe("AI tasks with a mocked API", () => {
     expect(first.source).toBe("ai");
     expect(second.source).toBe("ai");
     expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("skipAi returns cache if populated, fallback otherwise", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        categoryId: 4,
+        confidence: "medium",
+        rationale: "The note matches transport.",
+        refused: false,
+        reason: "",
+      }),
+    );
+    const store = memoryAiResultStore();
+    const deps = { env: keyEnv, fetchImpl, store };
+
+    // With skipAi, no AI call is made even when cache is empty
+    const noCache = await suggestCategory(categoryRequest, { ...deps, skipAi: true });
+    expect(noCache.source).toBe("fallback");
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    // Warm the cache with a real call
+    const warm = await suggestCategory(categoryRequest, deps);
+    expect(warm.source).toBe("ai");
+
+    // Now skipAi returns from cache
+    const cached = await suggestCategory(categoryRequest, { ...deps, skipAi: true });
+    expect(cached.source).toBe("cache");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it("retries a 500 once", async () => {
