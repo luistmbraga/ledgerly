@@ -8,9 +8,9 @@ import { db } from "../client";
 import {
   investorProfiles,
   personalityAnswers,
-  settings,
   type InvestorProfileRow,
 } from "../schema";
+import { updateSettings } from "./settings";
 
 const PROFILE_ID = 1;
 
@@ -93,14 +93,7 @@ export function savePersonalityAssessment(
       })
       .run();
 
-    const updated = tx
-      .update(settings)
-      .set({ personalityRevealedAt: now, updatedAt: now })
-      .where(eq(settings.id, PROFILE_ID))
-      .run();
-    if (updated.changes === 0) {
-      invalid("Settings are not initialized. Run pnpm db:migrate.");
-    }
+    updateSettings({ personalityRevealedAt: now }, tx);
 
     const profile = tx
       .select()
@@ -121,10 +114,7 @@ export function clearPersonalityAssessment(): void {
   db.transaction((tx) => {
     tx.delete(personalityAnswers).run();
     tx.delete(investorProfiles).run();
-    tx.update(settings)
-      .set({ personalityRevealedAt: null, updatedAt: now })
-      .where(eq(settings.id, PROFILE_ID))
-      .run();
+    updateSettings({ personalityRevealedAt: null }, tx);
   });
 }
 

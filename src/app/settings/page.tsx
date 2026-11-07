@@ -1,17 +1,11 @@
-import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { MoneyInput } from "@/components/money-input";
-import { db } from "@/db/client";
-import { settings } from "@/db/schema";
+import { getSettings, updateSettings } from "@/db/repositories/settings";
 import { centsToDecimalInput, formatMoney, parseMoneyToCents } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-function readSettings() {
-  return db.select().from(settings).where(eq(settings.id, 1)).get();
-}
 
 async function saveSettings(formData: FormData) {
   "use server";
@@ -47,22 +41,18 @@ async function saveSettings(formData: FormData) {
     redirect(`/settings?error=${encodeURIComponent(errors.join(" "))}`);
   }
 
-  const existing = readSettings();
+  const existing = getSettings();
   if (!existing) {
     redirect(
       `/settings?error=${encodeURIComponent("Settings are not initialized. Run pnpm db:migrate.")}`,
     );
   }
 
-  db.update(settings)
-    .set({
-      displayCurrency: currency,
-      emergencyFundTargetMonths: months,
-      essentialMonthlySpendOverrideCents: overrideCents,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(settings.id, 1))
-    .run();
+  updateSettings({
+    displayCurrency: currency,
+    emergencyFundTargetMonths: months,
+    essentialMonthlySpendOverrideCents: overrideCents,
+  });
 
   revalidatePath("/settings");
   redirect("/settings?saved=1");
@@ -74,7 +64,7 @@ export default async function SettingsPage({
   searchParams: Promise<{ error?: string; saved?: string }>;
 }) {
   const params = await searchParams;
-  const row = readSettings();
+  const row = getSettings();
   const aiConfigured = Boolean(process.env.AI_API_KEY?.trim());
   const error = params.error;
   const saved = params.saved === "1";

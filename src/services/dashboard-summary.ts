@@ -1,14 +1,12 @@
-import { eq } from "drizzle-orm";
 import { computeNetWorth, selectLatestSnapshot } from "@/domain/net-worth";
 import type { AssetType, NetWorthResult } from "@/domain/net-worth";
-import { db } from "@/db/client";
 import { listAssets } from "@/db/repositories/assets";
 import { listLiabilities } from "@/db/repositories/liabilities";
+import { getSettings } from "@/db/repositories/settings";
 import {
   listSnapshotsForAsset,
   listSnapshotsForLiability,
 } from "@/db/repositories/snapshots";
-import { settings } from "@/db/schema";
 
 export type DashboardSummary = {
   currency: string;
@@ -19,12 +17,7 @@ export type DashboardSummary = {
 };
 
 export function getDisplayCurrency(): string {
-  const row = db
-    .select({ displayCurrency: settings.displayCurrency })
-    .from(settings)
-    .where(eq(settings.id, 1))
-    .get();
-  return row?.displayCurrency ?? "EUR";
+  return getSettings()?.displayCurrency ?? "EUR";
 }
 
 export function getDashboardSummary(): DashboardSummary {

@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import {
   computeEmergencyFund,
   computeEssentialMonthlyAverage,
@@ -6,13 +5,12 @@ import {
   type EmergencyFundResult,
   type EssentialSpendSource,
 } from "@/domain/emergency-fund";
-import { db } from "@/db/client";
 import { listAssets } from "@/db/repositories/assets";
 import { listCategories } from "@/db/repositories/categories";
 import { listExpenses } from "@/db/repositories/expenses";
 import { listIncomes } from "@/db/repositories/incomes";
+import { getSettings } from "@/db/repositories/settings";
 import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
-import { settings } from "@/db/schema";
 import { todayUtc } from "@/lib/dates";
 
 export type EmergencyFundAssetLine = ContributingAsset & {
@@ -27,12 +25,8 @@ export type EmergencyFundView = EmergencyFundResult & {
   assets: EmergencyFundAssetLine[];
 };
 
-function readSettings() {
-  return db.select().from(settings).where(eq(settings.id, 1)).get();
-}
-
 export function getEmergencyFund(asOfDate = todayUtc()): EmergencyFundView {
-  const row = readSettings();
+  const row = getSettings();
   const targetMonths = row?.emergencyFundTargetMonths ?? 6;
   const currency = row?.displayCurrency ?? "EUR";
   const essential = computeEssentialMonthlyAverage(
