@@ -1,4 +1,4 @@
-import type { HorizonBucket } from "./goals";
+import { sumShortGoalRemainingCents, type HorizonBucket } from "./goals";
 import type { AssetType } from "./net-worth";
 import {
   PERSONALITY_TITLES,
@@ -282,10 +282,8 @@ export function buildBriefingDecision(
   mix: AllocationPercents,
   shortGoalReservedCents = 0,
 ): BriefingDecision {
-  const targetBand = ALLOCATION_BANDS[profile.label];
-  const shortGoalRemainingCents = goals
-    .filter((goal) => goal.bucket === "short")
-    .reduce((sum, goal) => sum + Math.max(0, goal.remainingCents), 0);
+  const targetBand = bandForLabel(profile.label) ?? ZERO_MIX;
+  const shortGoalRemainingCents = sumShortGoalRemainingCents(goals);
   const priorities: BriefingPriority[] = [];
   if (emergency.gapCents > 0) priorities.push("build_emergency_fund");
   if (shortGoalRemainingCents > 0) priorities.push("reserve_short_goals");

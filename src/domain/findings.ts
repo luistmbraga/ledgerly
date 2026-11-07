@@ -1,4 +1,5 @@
 import type { GoalStatus } from "./goals";
+import { ratio } from "./cashflow";
 import { formatMoney } from "../lib/money";
 import { formatRatio } from "../lib/percent";
 
@@ -23,6 +24,7 @@ export type FindingsInput = {
   currency: string;
   incomeCents: number;
   surplusCents: number;
+  savingsRate: number | null;
   expenseCents: number;
   discretionaryCents: number;
   expenseCount: number;
@@ -37,11 +39,6 @@ const LOW_SAVINGS_RATE = 0.1;
 const HIGH_DISCRETIONARY_SHARE = 0.4;
 const UNCATEGORIZED_SHARE = 0.15;
 
-function ratio(part: number, whole: number): number | null {
-  if (whole <= 0) return null;
-  return part / whole;
-}
-
 function goalsWithStatus(input: FindingsInput, status: GoalStatus): string[] {
   return input.goals
     .filter((goal) => goal.status === status)
@@ -49,10 +46,7 @@ function goalsWithStatus(input: FindingsInput, status: GoalStatus): string[] {
 }
 
 export function buildFindings(snapshotInputs: FindingsInput): Finding[] {
-  const savingsRate =
-    snapshotInputs.incomeCents > 0
-      ? snapshotInputs.surplusCents / snapshotInputs.incomeCents
-      : null;
+  const { savingsRate } = snapshotInputs;
   const discretionaryShare = ratio(
     snapshotInputs.discretionaryCents,
     snapshotInputs.expenseCents,

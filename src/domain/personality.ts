@@ -52,6 +52,10 @@ export const PERSONALITY_TITLES: Record<PersonalityLabel, string> = {
   aggressive: "Aggressive",
 };
 
+export function isPersonalityLabel(value: string): value is PersonalityLabel {
+  return Object.prototype.hasOwnProperty.call(PERSONALITY_TITLES, value);
+}
+
 type Contribution = {
   risk?: number;
   horizon?: number;

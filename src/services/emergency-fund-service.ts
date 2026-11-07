@@ -37,6 +37,7 @@ export function getEmergencyFund(asOfDate = todayUtc()): EmergencyFundView {
     })),
     listCategories("expense").map((category) => ({
       id: category.id,
+      kind: "expense" as const,
       isEssential: category.isEssential,
     })),
     {

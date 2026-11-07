@@ -16,6 +16,7 @@ function inputs(overrides: Partial<FindingsInput> = {}): FindingsInput {
     currency: "EUR",
     incomeCents: 0,
     surplusCents: 0,
+    savingsRate: null,
     expenseCents: 0,
     discretionaryCents: 0,
     expenseCount: 0,
@@ -76,6 +77,7 @@ describe("buildFindings", () => {
       inputs({
         incomeCents: 100_000,
         surplusCents: 9_000,
+        savingsRate: 0.09,
       }),
     );
     expect(findings.map((finding) => finding.id)).toEqual(["low_savings_rate"]);
@@ -85,10 +87,10 @@ describe("buildFindings", () => {
 
   it("does not fire low_savings_rate at exactly 10% or when income is zero", () => {
     expect(
-      ids({ incomeCents: 100_000, surplusCents: 10_000 }),
+      ids({ incomeCents: 100_000, surplusCents: 10_000, savingsRate: 0.1 }),
     ).not.toContain("low_savings_rate");
     expect(
-      ids({ incomeCents: 0, surplusCents: -5_000 }),
+      ids({ incomeCents: 0, surplusCents: -5_000, savingsRate: null }),
     ).not.toContain("low_savings_rate");
   });
 
@@ -176,6 +178,7 @@ describe("buildFindings", () => {
         currency: "USD",
         incomeCents: 100_00,
         surplusCents: -50_00,
+        savingsRate: -0.5,
         expenseCents: 150_00,
       }),
     );
@@ -190,7 +193,7 @@ describe("buildFindings", () => {
 describe("renderTipTemplates", () => {
   it("renders the low savings template from the finding data", () => {
     const tips = renderTipTemplates(
-      buildFindings(inputs({ incomeCents: 100_000, surplusCents: 9_000 })),
+      buildFindings(inputs({ incomeCents: 100_000, surplusCents: 9_000, savingsRate: 0.09 })),
     );
     expect(tips).toEqual([
       {
@@ -269,7 +272,7 @@ describe("buildFinancialSnapshot", () => {
       }),
     );
 
-    expect(snapshot.version).toBe("2026-11-06");
+    expect(snapshot.version).toBe("2026-11-07");
     expect(snapshot.netWorth.netWorthCents).toBe(210_000);
     expect(snapshot.cashflow).toMatchObject({
       trailingMonths: 3,

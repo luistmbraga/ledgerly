@@ -45,9 +45,9 @@ function ceilDiv(numerator: number, denominator: number): number {
   return Math.floor((numerator + denominator - 1) / denominator);
 }
 
-/** Ceil to integer cents, ignoring binary noise just below an integer. */
+/** Ceil to integer cents, ignoring binary floating-point noise just below an integer. */
 function ceilCents(value: number): number {
-  return Math.ceil(value - 1e-9);
+  return Math.ceil(value - Math.abs(value) * 1e-9);
 }
 
 function requiredMonthlyCents(
@@ -60,6 +60,11 @@ function requiredMonthlyCents(
   const bps = goal.expectedAnnualReturnBps;
   if (bps === null) {
     return ceilDiv(remainingCents, monthsRemaining);
+  }
+  if (bps < 0) {
+    const error = new Error("expectedAnnualReturnBps must be non-negative");
+    error.name = "ValidationError";
+    throw error;
   }
 
   const monthlyRate = bps / 10000 / 12;
@@ -91,6 +96,15 @@ function statusFor(
   if (comparedMonthlyCents >= required) return "on_track";
   if (comparedMonthlyCents * 100 >= required * 80) return "tight";
   return "shortfall";
+}
+
+/** Sum of remaining cents across goals in the "short" horizon bucket. */
+export function sumShortGoalRemainingCents(
+  goals: readonly { bucket: HorizonBucket; remainingCents: number }[],
+): number {
+  return goals
+    .filter((g) => g.bucket === "short")
+    .reduce((sum, g) => sum + Math.max(0, g.remainingCents), 0);
 }
 
 export function computeGoalFeasibility(

@@ -1,9 +1,10 @@
 import type { CashflowLine } from "./cashflow";
-import { sumCashflow } from "./cashflow";
+import { ratio, sumCashflow } from "./cashflow";
 import { trailingFullMonthRanges } from "./emergency-fund";
 import { buildFindings, type Finding } from "./findings";
 import {
   computeGoalFeasibility,
+  sumShortGoalRemainingCents,
   type GoalStatus,
   type HorizonBucket,
 } from "./goals";
@@ -17,7 +18,7 @@ import {
 import type { AssetType, NetWorthResult } from "./net-worth";
 
 /** Bump when formulas change so later AI cache keys can invalidate. */
-export const DOMAIN_VERSION = "2026-11-06";
+export const DOMAIN_VERSION = "2026-11-07";
 
 export type SnapshotCategory = {
   id: number;
@@ -118,11 +119,6 @@ export type FinancialSnapshotInput = {
   /** Latest snapshot per asset. Omitted assets contribute nothing to the mix. */
   allocationAssets?: readonly AllocationAsset[];
 };
-
-function ratio(part: number, whole: number): number | null {
-  if (whole <= 0) return null;
-  return part / whole;
-}
 
 /** Inclusive span of the last three full calendar months before `asOf`. */
 export function trailingThreeMonthRange(asOfDate: string): {
@@ -232,6 +228,7 @@ export function buildFinancialSnapshot(
     currency: input.currency,
     incomeCents: cashflow.incomeCents,
     surplusCents: cashflow.surplusCents,
+    savingsRate: cashflow.savingsRate,
     expenseCents: cashflow.expenseCents,
     discretionaryCents: cashflow.discretionaryCents,
     expenseCount: cashflow.expenseCount,
@@ -269,9 +266,7 @@ export function buildFinancialSnapshot(
     goals,
     investorProfile: input.investorProfile,
     allocation: (() => {
-      const shortGoalRemainingCents = goals
-        .filter((goal) => goal.bucket === "short")
-        .reduce((sum, goal) => sum + goal.remainingCents, 0);
+      const shortGoalRemainingCents = sumShortGoalRemainingCents(goals);
       const investable = computeInvestableMix(input.allocationAssets ?? [], {
         emergencyEligibleCents: input.emergencyFund.eligibleCents,
         emergencyTargetCents: input.emergencyFund.targetCents,

@@ -263,4 +263,14 @@ describe("computeGoalFeasibility", () => {
     expect(result.bucket).toBe("short");
     expect(result.requiredMonthlyCents).toBe(50);
   });
+
+  it("rejects a negative expectedAnnualReturnBps with a ValidationError", () => {
+    expect(() =>
+      computeGoalFeasibility(
+        goal({ expectedAnnualReturnBps: -1 }),
+        AS_OF,
+        0,
+      ),
+    ).toThrow("expectedAnnualReturnBps must be non-negative");
+  });
 });

@@ -17,8 +17,13 @@ export type CashflowSum = {
   savingsRate: number | null;
 };
 
-function inRange(occurredOn: string, range: DateRange): boolean {
+export function inRange(occurredOn: string, range: DateRange): boolean {
   return occurredOn >= range.start && occurredOn <= range.end;
+}
+
+export function ratio(part: number, whole: number): number | null {
+  if (whole <= 0) return null;
+  return part / whole;
 }
 
 function sumInRange(

@@ -1,8 +1,11 @@
 import type { BriefingDecision } from "@/domain/allocation";
 import { buildBriefingDecision } from "@/domain/allocation";
 import { listAssets } from "@/db/repositories/assets";
-import type { PersonalityLabel } from "@/domain/personality";
-import { PERSONALITY_TITLES } from "@/domain/personality";
+import {
+  isPersonalityLabel,
+  type PersonalityLabel,
+  PERSONALITY_TITLES,
+} from "@/domain/personality";
 import {
   PRIORITY_GLOSS,
   formatCentsMoney,
@@ -132,10 +135,6 @@ export async function narrateBriefing(
       disclaimer: BRIEFING_DISCLAIMER,
     },
   };
-}
-
-export function isPersonalityLabel(value: string): value is PersonalityLabel {
-  return Object.prototype.hasOwnProperty.call(PERSONALITY_TITLES, value);
 }
 
 export type PropertyOrVehicleInMix = {

@@ -272,6 +272,17 @@ describe("buildBriefingDecision", () => {
       other: 5,
     });
   });
+
+  it("yields a zero target band for an unknown profile label rather than NaN drift", () => {
+    const decision = buildBriefingDecision(
+      { label: "unknown_label" as never },
+      { gapCents: 0 },
+      [],
+      { cash: 10, bonds: 20, equities: 50, other: 20 },
+    );
+    expect(decision.targetBand).toEqual({ cash: 0, bonds: 0, equities: 0, other: 0 });
+    expect(Number.isNaN(decision.drift.cash)).toBe(false);
+  });
 });
 
 describe("buildFinancialSnapshot allocation", () => {

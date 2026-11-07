@@ -26,9 +26,9 @@ import type { DatedSnapshot } from "./net-worth";
 const AS_OF = "2026-04-15";
 
 const categories: EssentialCategory[] = [
-  { id: 1, isEssential: true },
-  { id: 2, isEssential: false },
-  { id: 3, isEssential: true },
+  { id: 1, kind: "expense", isEssential: true },
+  { id: 2, kind: "expense", isEssential: false },
+  { id: 3, kind: "expense", isEssential: true },
 ];
 
 const essentialFixture: EssentialExpense[] = [
@@ -203,6 +203,24 @@ describe("computeEssentialMonthlyAverage", () => {
       "2024-03-15",
     );
     expect(result.computedAverageCents).toBe(30);
+  });
+
+  it("ignores income categories even when marked essential", () => {
+    const mixedCategories: EssentialCategory[] = [
+      { id: 1, kind: "expense", isEssential: true },
+      { id: 10, kind: "income", isEssential: true },
+    ];
+    const result = computeEssentialMonthlyAverage(
+      [
+        { amountCents: 150_000, occurredOn: "2026-01-01", categoryId: 1 },
+        { amountCents: 999_000, occurredOn: "2026-02-01", categoryId: 10 },
+        { amountCents: 150_000, occurredOn: "2026-03-01", categoryId: 1 },
+      ],
+      mixedCategories,
+      settings,
+      AS_OF,
+    );
+    expect(result.computedAverageCents).toBe(100_000);
   });
 });
 

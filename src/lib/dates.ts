@@ -1,7 +1,13 @@
-/** Parses an ISO-8601 date string. Throws on invalid input. */
+function invalidDate(value: string): never {
+  const error = new Error(`Invalid date: ${value}`);
+  error.name = "ValidationError";
+  throw error;
+}
+
+/** Parses an ISO-8601 date string. Throws a ValidationError on invalid input. */
 export function parseIsoDate(value: string): { year: number; month: number; day: number } {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) throw new Error(`Invalid date: ${value}`);
+  if (!match) invalidDate(value);
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
@@ -11,7 +17,7 @@ export function parseIsoDate(value: string): { year: number; month: number; day:
     date.getUTCMonth() !== month - 1 ||
     date.getUTCDate() !== day
   ) {
-    throw new Error(`Invalid date: ${value}`);
+    invalidDate(value);
   }
   return { year, month, day };
 }

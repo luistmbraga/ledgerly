@@ -6,6 +6,7 @@ import { buildFinancialSnapshot } from "@/domain/financial-snapshot";
 import type { FinancialSnapshot } from "@/domain/financial-snapshot";
 import { computeNetWorth } from "@/domain/net-worth";
 import {
+  isPersonalityLabel,
   PERSONALITY_TITLES,
   type PersonalityLabel,
 } from "@/domain/personality";
@@ -22,10 +23,6 @@ import {
   getLatestSnapshotsByLiabilityIds,
 } from "@/db/repositories/snapshots";
 import { todayUtc } from "@/lib/dates";
-
-function isPersonalityLabel(value: string): value is PersonalityLabel {
-  return Object.prototype.hasOwnProperty.call(PERSONALITY_TITLES, value);
-}
 
 export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
   const asOf = asOfDate ?? todayUtc();
@@ -62,7 +59,7 @@ export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
     })),
     categoryRows
       .filter((c) => c.kind === "expense")
-      .map((c) => ({ id: c.id, isEssential: c.isEssential })),
+      .map((c) => ({ id: c.id, kind: "expense" as const, isEssential: c.isEssential })),
     {
       emergencyFundTargetMonths: targetMonths,
       essentialMonthlySpendOverrideCents:

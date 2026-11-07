@@ -1,5 +1,5 @@
 import { parseIsoDate } from "../lib/dates";
-import { sumCashflow, type CashflowLine, type DateRange } from "./cashflow";
+import { inRange, sumCashflow, type CashflowLine, type DateRange } from "./cashflow";
 import { selectLatestSnapshot, type DatedSnapshot } from "./net-worth";
 
 export type EssentialExpense = {
@@ -10,6 +10,7 @@ export type EssentialExpense = {
 
 export type EssentialCategory = {
   id: number;
+  kind: "expense" | "income";
   isEssential: boolean;
 };
 
@@ -100,10 +101,7 @@ function sumEssentialInRange(
   for (const expense of expenses) {
     if (expense.categoryId === null) continue;
     if (!essentialCategoryIds.has(expense.categoryId)) continue;
-    if (
-      expense.occurredOn >= range.start &&
-      expense.occurredOn <= range.end
-    ) {
+    if (inRange(expense.occurredOn, range)) {
       total += expense.amountCents;
     }
   }
@@ -117,7 +115,9 @@ export function computeEssentialMonthlyAverage(
   asOfDate: string,
 ): EssentialMonthlyAverage {
   const essentialCategoryIds = new Set(
-    categories.filter((category) => category.isEssential).map((category) => category.id),
+    categories
+      .filter((category) => category.kind === "expense" && category.isEssential)
+      .map((category) => category.id),
   );
   const ranges = trailingFullMonthRanges(asOfDate);
   const essentialSum = ranges.reduce(
