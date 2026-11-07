@@ -14,7 +14,10 @@ import {
 } from "@/db/repositories/assets";
 import {
   addAssetSnapshot,
+  deleteSnapshot,
+  getSnapshot,
   isValidIsoDate,
+  updateSnapshot,
 } from "@/db/repositories/snapshots";
 import { parseMoneyToCents } from "@/lib/money";
 
@@ -157,4 +160,59 @@ export async function addAssetSnapshotAction(formData: FormData) {
   revalidatePath("/assets");
   revalidatePath("/");
   redirect(`${path}?saved=snapshot`);
+}
+
+export async function updateAssetSnapshotAction(formData: FormData) {
+  const snapshotId = Number(String(formData.get("snapshotId") ?? ""));
+  if (!Number.isSafeInteger(snapshotId) || snapshotId < 1) fail("/assets", "Snapshot not found.");
+  const existing = getSnapshot(snapshotId);
+  if (!existing || existing.assetId === null) fail("/assets", "Snapshot not found.");
+  const path = `/assets/${existing.assetId}`;
+
+  const parsed = parseMoneyToCents(String(formData.get("amount") ?? ""));
+  if (!parsed.ok) fail(path, parsed.error);
+
+  const recordedOn = String(formData.get("recordedOn") ?? "");
+  if (!isValidIsoDate(recordedOn)) fail(path, "Enter a valid date.");
+
+  const note = String(formData.get("note") ?? "").trim();
+  if (note.length > 500) fail(path, "Note must be 500 characters or fewer.");
+
+  try {
+    const updated = updateSnapshot(snapshotId, {
+      recordedOn,
+      amountCents: parsed.cents,
+      note: note.length === 0 ? null : note,
+    });
+    if (!updated) fail(path, "Snapshot not found.");
+  } catch (error) {
+    fail(path, error instanceof Error ? error.message : "Could not update the snapshot.");
+  }
+
+  revalidatePath(path);
+  revalidatePath("/assets");
+  revalidatePath("/");
+  redirect(`${path}?saved=snapshot-updated`);
+}
+
+export async function deleteAssetSnapshotAction(formData: FormData) {
+  const snapshotId = Number(String(formData.get("id") ?? ""));
+  if (!Number.isSafeInteger(snapshotId) || snapshotId < 1) fail("/assets", "Snapshot not found.");
+  const existing = getSnapshot(snapshotId);
+  if (!existing || existing.assetId === null) fail("/assets", "Snapshot not found.");
+  const path = `/assets/${existing.assetId}`;
+
+  const result = deleteSnapshot(snapshotId);
+  if (!result.ok && result.reason === "not_found") fail(path, "Snapshot not found.");
+  if (!result.ok && result.reason === "linked") {
+    fail(
+      path,
+      "This snapshot is linked to a journal entry. Go to Activity and unlink the entry first.",
+    );
+  }
+
+  revalidatePath(path);
+  revalidatePath("/assets");
+  revalidatePath("/");
+  redirect(`${path}?saved=snapshot-deleted`);
 }

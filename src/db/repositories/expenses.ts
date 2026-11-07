@@ -156,3 +156,14 @@ export function deleteExpense(id: number): boolean {
   });
   return true;
 }
+
+/** Remove the cash link from a frozen journal row without touching snapshots. */
+export function unlinkExpenseCash(id: number): boolean {
+  const existing = getExpense(id);
+  if (!existing || existing.linkedSnapshotId === null) return false;
+  db.update(expenses)
+    .set({ assetId: null, linkedSnapshotId: null, updatedAt: new Date().toISOString() })
+    .where(eq(expenses.id, id))
+    .run();
+  return true;
+}

@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { isValidIsoDate } from "../../lib/dates";
 import { db } from "../client";
-import { assets, liabilities, valueSnapshots, type ValueSnapshotRow } from "../schema";
+import { assets, expenses, incomes, liabilities, valueSnapshots, type ValueSnapshotRow } from "../schema";
 
 export type SnapshotRecord = ValueSnapshotRow;
 
@@ -94,4 +94,45 @@ export function addLiabilitySnapshot(
     })
     .returning()
     .get();
+}
+
+export function getSnapshot(id: number): SnapshotRecord | null {
+  return db.select().from(valueSnapshots).where(eq(valueSnapshots.id, id)).get() ?? null;
+}
+
+export function updateSnapshot(id: number, input: SnapshotInput): SnapshotRecord | null {
+  const existing = getSnapshot(id);
+  if (!existing) return null;
+  const value = assertSnapshotInput(input);
+  return (
+    db
+      .update(valueSnapshots)
+      .set({ recordedOn: value.recordedOn, amountCents: value.amountCents, note: value.note })
+      .where(eq(valueSnapshots.id, id))
+      .returning()
+      .get() ?? null
+  );
+}
+
+export type DeleteSnapshotResult =
+  | { ok: true }
+  | { ok: false; reason: "not_found" | "linked" };
+
+export function deleteSnapshot(id: number): DeleteSnapshotResult {
+  const existing = getSnapshot(id);
+  if (!existing) return { ok: false, reason: "not_found" };
+  const linkedExpense = db
+    .select({ id: expenses.id })
+    .from(expenses)
+    .where(eq(expenses.linkedSnapshotId, id))
+    .get();
+  if (linkedExpense) return { ok: false, reason: "linked" };
+  const linkedIncome = db
+    .select({ id: incomes.id })
+    .from(incomes)
+    .where(eq(incomes.linkedSnapshotId, id))
+    .get();
+  if (linkedIncome) return { ok: false, reason: "linked" };
+  db.delete(valueSnapshots).where(eq(valueSnapshots.id, id)).run();
+  return { ok: true };
 }

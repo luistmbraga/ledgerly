@@ -2,8 +2,10 @@ import Link from "next/link";
 import { todayUtc } from "@/lib/dates";
 import { listAssets } from "@/db/repositories/assets";
 import { listCategories } from "@/db/repositories/categories";
-import { listExpenses } from "@/db/repositories/expenses";
-import { listIncomes } from "@/db/repositories/incomes";
+import { listExpenses, type ExpenseWithCategory } from "@/db/repositories/expenses";
+import { listIncomes, type IncomeWithCategory } from "@/db/repositories/incomes";
+import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
+import { selectLatestSnapshot } from "@/domain/net-worth";
 import { centsToDecimalInput, formatMoney } from "@/lib/money";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
 import { formatIsoDate } from "../assets/labels";
@@ -12,6 +14,8 @@ import {
   createIncomeAction,
   deleteExpenseAction,
   deleteIncomeAction,
+  unlinkExpenseCashAction,
+  unlinkIncomeCashAction,
   updateExpenseAction,
   updateIncomeAction,
 } from "./actions";
@@ -33,9 +37,11 @@ const SAVED: Record<string, string> = {
   "expense-created": "Expense added.",
   "expense-updated": "Expense updated.",
   "expense-deleted": "Expense deleted.",
+  "expense-unlinked": "Cash link removed. The expense is now editable.",
   "income-created": "Income added.",
   "income-updated": "Income updated.",
   "income-deleted": "Income deleted.",
+  "income-unlinked": "Cash link removed. The income is now editable.",
   "category-created": "Category added.",
   "category-updated": "Category updated.",
   "category-deleted": "Category deleted.",
@@ -118,6 +124,34 @@ function cashAccountOptions() {
     .map((asset) => ({ id: asset.id, name: asset.name }));
 }
 
+type LinkedRow = { id: number; assetId: number | null; linkedSnapshotId: number | null };
+
+function buildFrozenSet(rows: LinkedRow[]): Set<number> {
+  const assetIds = [
+    ...new Set(
+      rows
+        .filter((r) => r.linkedSnapshotId !== null && r.assetId !== null)
+        .map((r) => r.assetId!),
+    ),
+  ];
+  const latestByAsset = new Map<number, number | null>();
+  for (const assetId of assetIds) {
+    const snaps = listSnapshotsForAsset(assetId);
+    const latest = selectLatestSnapshot(snaps);
+    latestByAsset.set(assetId, latest?.id ?? null);
+  }
+  const frozen = new Set<number>();
+  for (const row of rows) {
+    if (row.linkedSnapshotId !== null && row.assetId !== null) {
+      const latestId = latestByAsset.get(row.assetId);
+      if (latestId !== row.linkedSnapshotId) {
+        frozen.add(row.id);
+      }
+    }
+  }
+  return frozen;
+}
+
 function ExpenseTab({
   currency,
   editId,
@@ -129,6 +163,7 @@ function ExpenseTab({
   const categories = listCategories("expense");
   const cashAccounts = cashAccountOptions();
   const editing = editId === undefined ? undefined : rows.find((row) => row.id === editId);
+  const frozen = buildFrozenSet(rows);
 
   return (
     <>
@@ -155,6 +190,7 @@ function ExpenseTab({
             <tbody>
               {rows.map((row) => {
                 const uncategorized = row.categoryId === null;
+                const isFrozen = frozen.has(row.id);
                 return (
                   <tr
                     key={row.id}
@@ -175,6 +211,11 @@ function ExpenseTab({
                     </td>
                     <td className="py-3 pr-4 text-stone-700">
                       {row.assetName ?? "—"}
+                      {isFrozen ? (
+                        <span className="ml-2 text-xs font-medium text-amber-700">
+                          Frozen
+                        </span>
+                      ) : null}
                     </td>
                     <td className="py-3 pr-4 text-stone-700">{row.note ?? "—"}</td>
                     <td className="py-3">
@@ -185,6 +226,17 @@ function ExpenseTab({
                         >
                           Edit
                         </Link>
+                        {isFrozen ? (
+                          <form action={unlinkExpenseCashAction}>
+                            <input type="hidden" name="id" value={row.id} />
+                            <button
+                              type="submit"
+                              className="rounded-md border border-amber-300 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-600 focus:ring-offset-2"
+                            >
+                              Unlink
+                            </button>
+                          </form>
+                        ) : null}
                         <ConfirmDelete
                           action={deleteExpenseAction}
                           id={row.id}
@@ -258,6 +310,7 @@ function IncomeTab({
   const categories = listCategories("income");
   const cashAccounts = cashAccountOptions();
   const editing = editId === undefined ? undefined : rows.find((row) => row.id === editId);
+  const frozen = buildFrozenSet(rows);
 
   return (
     <>
@@ -282,43 +335,62 @@ function IncomeTab({
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-stone-100">
-                  <td className="py-3 pr-4">{formatIsoDate(row.occurredOn)}</td>
-                  <td className="py-3 pr-4 text-stone-800">
-                    {row.categoryId === null ? "Uncategorized" : row.categoryName}
-                  </td>
-                  <td className="py-3 pr-4 tabular-nums">
-                    {formatMoney(row.amountCents, currency)}
-                  </td>
-                  <td className="py-3 pr-4 text-stone-700">
-                    {row.assetName ?? "—"}
-                  </td>
-                  <td className="py-3 pr-4 text-stone-700">{row.note ?? "—"}</td>
-                  <td className="py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <Link
-                        href={`/activity?tab=income&edit=${row.id}`}
-                        className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-                      >
-                        Edit
-                      </Link>
-                      <ConfirmDelete
-                        action={deleteIncomeAction}
-                        id={row.id}
-                        dialogKey={`income-${row.id}`}
-                        title="Delete this income?"
-                        body={
-                          row.assetId === null
-                            ? "This removes the income from Activity. Asset balances stay the same."
-                            : "This removes the income from Activity. If this entry still owns the latest cash snapshot, that balance is reversed."
-                        }
-                        triggerLabel="Delete"
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((row) => {
+                const isFrozen = frozen.has(row.id);
+                return (
+                  <tr key={row.id} className="border-b border-stone-100">
+                    <td className="py-3 pr-4">{formatIsoDate(row.occurredOn)}</td>
+                    <td className="py-3 pr-4 text-stone-800">
+                      {row.categoryId === null ? "Uncategorized" : row.categoryName}
+                    </td>
+                    <td className="py-3 pr-4 tabular-nums">
+                      {formatMoney(row.amountCents, currency)}
+                    </td>
+                    <td className="py-3 pr-4 text-stone-700">
+                      {row.assetName ?? "—"}
+                      {isFrozen ? (
+                        <span className="ml-2 text-xs font-medium text-amber-700">
+                          Frozen
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="py-3 pr-4 text-stone-700">{row.note ?? "—"}</td>
+                    <td className="py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Link
+                          href={`/activity?tab=income&edit=${row.id}`}
+                          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+                        >
+                          Edit
+                        </Link>
+                        {isFrozen ? (
+                          <form action={unlinkIncomeCashAction}>
+                            <input type="hidden" name="id" value={row.id} />
+                            <button
+                              type="submit"
+                              className="rounded-md border border-amber-300 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-600 focus:ring-offset-2"
+                            >
+                              Unlink
+                            </button>
+                          </form>
+                        ) : null}
+                        <ConfirmDelete
+                          action={deleteIncomeAction}
+                          id={row.id}
+                          dialogKey={`income-${row.id}`}
+                          title="Delete this income?"
+                          body={
+                            row.assetId === null
+                              ? "This removes the income from Activity. Asset balances stay the same."
+                              : "This removes the income from Activity. If this entry still owns the latest cash snapshot, that balance is reversed."
+                          }
+                          triggerLabel="Delete"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

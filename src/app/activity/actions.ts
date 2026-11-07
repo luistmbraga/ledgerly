@@ -16,12 +16,14 @@ import {
   deleteExpense,
   getExpense,
   listExpenses,
+  unlinkExpenseCash,
   updateExpense,
 } from "@/db/repositories/expenses";
 import {
   createIncome,
   deleteIncome,
   getIncome,
+  unlinkIncomeCash,
   updateIncome,
 } from "@/db/repositories/incomes";
 import { isValidIsoDate } from "@/db/repositories/snapshots";
@@ -273,6 +275,26 @@ export async function deleteIncomeAction(formData: FormData) {
   if (!existing || !deleteIncome(id)) fail("income", "Income not found.");
   revalidateJournalPaths(existing.assetId);
   redirect(activityPath("income", { saved: "income-deleted" }));
+}
+
+export async function unlinkExpenseCashAction(formData: FormData) {
+  const id = readId(formData);
+  if (id === null) fail("expenses", "Expense not found.");
+  const existing = getExpense(id);
+  if (!existing) fail("expenses", "Expense not found.");
+  if (!unlinkExpenseCash(id)) fail("expenses", "This expense has no cash link to remove.");
+  revalidateJournalPaths(existing.assetId);
+  redirect(activityPath("expenses", { saved: "expense-unlinked" }));
+}
+
+export async function unlinkIncomeCashAction(formData: FormData) {
+  const id = readId(formData);
+  if (id === null) fail("income", "Income not found.");
+  const existing = getIncome(id);
+  if (!existing) fail("income", "Income not found.");
+  if (!unlinkIncomeCash(id)) fail("income", "This income has no cash link to remove.");
+  revalidateJournalPaths(existing.assetId);
+  redirect(activityPath("income", { saved: "income-unlinked" }));
 }
 
 export async function createCategoryAction(formData: FormData) {

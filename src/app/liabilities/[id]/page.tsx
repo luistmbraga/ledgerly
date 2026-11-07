@@ -5,7 +5,7 @@ import { MoneyInput } from "@/components/money-input";
 import { SnapshotDateField } from "@/components/snapshot-date-field";
 import { getLiability } from "@/db/repositories/liabilities";
 import { listSnapshotsForLiability } from "@/db/repositories/snapshots";
-import { formatMoney } from "@/lib/money";
+import { centsToDecimalInput, formatMoney } from "@/lib/money";
 import { todayUtc } from "@/lib/dates";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
 import { ConfirmDelete } from "../../assets/confirm-delete";
@@ -13,7 +13,9 @@ import { formatIsoDate } from "../../assets/labels";
 import {
   addLiabilitySnapshotAction,
   deleteLiabilityAction,
+  deleteLiabilitySnapshotAction,
   updateLiabilityAction,
+  updateLiabilitySnapshotAction,
 } from "../actions";
 import { LIABILITY_TYPE_LABELS } from "../labels";
 
@@ -24,6 +26,8 @@ const SAVED: Record<string, string> = {
   created: "Liability created. Add a snapshot for the amount owed.",
   updated: "Liability saved.",
   snapshot: "Snapshot added.",
+  "snapshot-updated": "Snapshot updated.",
+  "snapshot-deleted": "Snapshot deleted.",
 };
 
 export default async function LiabilityDetailPage({
@@ -31,7 +35,7 @@ export default async function LiabilityDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; editSnapshot?: string }>;
 }) {
   const { id: rawId } = await params;
   const query = await searchParams;
@@ -44,6 +48,13 @@ export default async function LiabilityDetailPage({
   const latest = selectLatestSnapshot(snapshots);
   const today = todayUtc();
   const saved = query.saved ? SAVED[query.saved] : undefined;
+  const editSnapshotId =
+    query.editSnapshot && /^\d+$/.test(query.editSnapshot)
+      ? Number(query.editSnapshot)
+      : null;
+  const editingSnapshot = editSnapshotId
+    ? snapshots.find((s) => s.id === editSnapshotId) ?? null
+    : null;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8">
@@ -152,7 +163,10 @@ export default async function LiabilityDetailPage({
                   <tr>
                     <th className="py-2 pr-4 font-medium">Date</th>
                     <th className="py-2 pr-4 font-medium">Amount owed</th>
-                    <th className="py-2 font-medium">Note</th>
+                    <th className="py-2 pr-4 font-medium">Note</th>
+                    <th className="py-2 font-medium">
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,8 +183,25 @@ export default async function LiabilityDetailPage({
                       <td className="py-3 pr-4">
                         {formatMoney(snapshot.amountCents, currency)}
                       </td>
-                      <td className="py-3 text-stone-700">
+                      <td className="py-3 pr-4 text-stone-700">
                         {snapshot.note ?? "—"}
+                      </td>
+                      <td className="py-3">
+                        <div className="flex gap-2">
+                          <Link
+                            href={`/liabilities/${liability.id}?editSnapshot=${snapshot.id}`}
+                            className="rounded-md border border-stone-300 px-3 py-1 text-xs font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+                          >
+                            Edit
+                          </Link>
+                          <ConfirmDelete
+                            action={deleteLiabilitySnapshotAction}
+                            id={snapshot.id}
+                            title="Delete this snapshot?"
+                            body="Removes the snapshot from history. This cannot be undone."
+                            triggerLabel="Delete"
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -178,6 +209,65 @@ export default async function LiabilityDetailPage({
               </table>
             </div>
           )}
+          {editingSnapshot ? (
+            <div className="mt-6 rounded-md border border-stone-200 p-4">
+              <h3 className="text-sm font-semibold">
+                Edit snapshot — {formatIsoDate(editingSnapshot.recordedOn)}
+              </h3>
+              <form
+                action={updateLiabilitySnapshotAction}
+                className="mt-3 flex flex-col gap-3"
+              >
+                <input type="hidden" name="snapshotId" value={editingSnapshot.id} />
+                <SnapshotDateField
+                  snapshots={snapshots
+                    .filter((s) => s.id !== editingSnapshot.id)
+                    .map((s) => ({
+                      id: s.id,
+                      recordedOn: s.recordedOn,
+                      amountCents: s.amountCents,
+                    }))}
+                  currency={currency}
+                  defaultDate={editingSnapshot.recordedOn}
+                />
+                <MoneyInput
+                  id="edit-snapshot-amount"
+                  name="amount"
+                  label="Amount owed"
+                  hint="Enter what you owe as a positive amount."
+                  defaultValue={centsToDecimalInput(editingSnapshot.amountCents)}
+                />
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="edit-snapshot-note" className="text-sm font-medium">
+                    Note
+                  </label>
+                  <input
+                    id="edit-snapshot-note"
+                    name="note"
+                    type="text"
+                    maxLength={500}
+                    autoComplete="off"
+                    defaultValue={editingSnapshot.note ?? ""}
+                    className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    className="rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+                  >
+                    Save snapshot
+                  </button>
+                  <Link
+                    href={`/liabilities/${liability.id}`}
+                    className="rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+                  >
+                    Cancel
+                  </Link>
+                </div>
+              </form>
+            </div>
+          ) : null}
         </section>
 
         <section className="max-w-xl border-t border-stone-200 pt-6">
