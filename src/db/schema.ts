@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   integer,
   sqliteTable,
@@ -40,7 +42,13 @@ export const assets = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [index("assets_type_idx").on(table.type)],
+  (table) => [
+    index("assets_type_idx").on(table.type),
+    check(
+      "assets_sleeves_ck",
+      sql`\`cash_pct\` + \`bonds_pct\` + \`equities_pct\` + \`other_pct\` = 100`,
+    ),
+  ],
 );
 
 export const liabilities = sqliteTable("liabilities", {
@@ -76,6 +84,11 @@ export const valueSnapshots = sqliteTable(
       table.liabilityId,
       table.recordedOn,
     ),
+    check(
+      "value_snapshots_xor_ck",
+      sql`(\`asset_id\` IS NULL) != (\`liability_id\` IS NULL)`,
+    ),
+    check("value_snapshots_amount_ck", sql`\`amount_cents\` >= 0`),
   ],
 );
 
@@ -146,17 +159,21 @@ export const incomes = sqliteTable(
   ],
 );
 
-export const goals = sqliteTable("goals", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull(),
-  targetAmountCents: integer("target_amount_cents").notNull(),
-  targetDate: text("target_date").notNull(),
-  setAsideCents: integer("set_aside_cents").notNull().default(0),
-  plannedMonthlyCents: integer("planned_monthly_cents"),
-  expectedAnnualReturnBps: integer("expected_annual_return_bps"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+export const goals = sqliteTable(
+  "goals",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    name: text("name").notNull(),
+    targetAmountCents: integer("target_amount_cents").notNull(),
+    targetDate: text("target_date").notNull(),
+    setAsideCents: integer("set_aside_cents").notNull().default(0),
+    plannedMonthlyCents: integer("planned_monthly_cents"),
+    expectedAnnualReturnBps: integer("expected_annual_return_bps"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("goals_target_date_idx").on(table.targetDate)],
+);
 
 export const personalityAnswers = sqliteTable("personality_answers", {
   questionKey: text("question_key").primaryKey(),
