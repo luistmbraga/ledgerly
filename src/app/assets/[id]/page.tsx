@@ -6,6 +6,7 @@ import { selectLatestSnapshot } from "@/domain/net-worth";
 import { getAsset } from "@/db/repositories/assets";
 import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
 import { formatMoney } from "@/lib/money";
+import { todayUtc } from "@/lib/dates";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
 import {
   addAssetSnapshotAction,
@@ -45,7 +46,7 @@ export default async function AssetDetailPage({
   const currency = getDisplayCurrency();
   const snapshots = listSnapshotsForAsset(asset.id);
   const latest = selectLatestSnapshot(snapshots);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayUtc();
   const saved = query.saved ? SAVED[query.saved] : undefined;
 
   return (

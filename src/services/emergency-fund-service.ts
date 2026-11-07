@@ -13,6 +13,7 @@ import { listExpenses } from "@/db/repositories/expenses";
 import { listIncomes } from "@/db/repositories/incomes";
 import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
 import { settings } from "@/db/schema";
+import { todayUtc } from "@/lib/dates";
 
 export type EmergencyFundAssetLine = ContributingAsset & {
   name: string;
@@ -26,15 +27,11 @@ export type EmergencyFundView = EmergencyFundResult & {
   assets: EmergencyFundAssetLine[];
 };
 
-function todayUtcDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function readSettings() {
   return db.select().from(settings).where(eq(settings.id, 1)).get();
 }
 
-export function getEmergencyFund(asOfDate = todayUtcDate()): EmergencyFundView {
+export function getEmergencyFund(asOfDate = todayUtc()): EmergencyFundView {
   const row = readSettings();
   const targetMonths = row?.emergencyFundTargetMonths ?? 6;
   const currency = row?.displayCurrency ?? "EUR";

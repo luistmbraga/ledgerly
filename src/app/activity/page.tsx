@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { todayUtc } from "@/lib/dates";
 import { listAssets } from "@/db/repositories/assets";
 import { listCategories } from "@/db/repositories/categories";
 import { listExpenses } from "@/db/repositories/expenses";
@@ -51,13 +52,6 @@ function parseEditId(value: string | undefined): number | undefined {
   return Number.isSafeInteger(id) ? id : undefined;
 }
 
-function todayIso(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 export default async function ActivityPage({
   searchParams,
@@ -238,7 +232,7 @@ function ExpenseTab({
                   }
                 : {
                     amount: "",
-                    occurredOn: todayIso(),
+                    occurredOn: todayUtc(),
                     categoryId: null,
                     assetId: null,
                     note: "",
@@ -354,7 +348,7 @@ function IncomeTab({
                   }
                 : {
                     amount: "",
-                    occurredOn: todayIso(),
+                    occurredOn: todayUtc(),
                     categoryId: null,
                     assetId: null,
                     note: "",
