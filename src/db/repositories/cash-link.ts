@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import {
   nextCashCents,
   type CashDirection,
@@ -30,6 +30,7 @@ function listAssetSnapshots(
     .select()
     .from(valueSnapshots)
     .where(eq(valueSnapshots.assetId, assetId))
+    .orderBy(desc(valueSnapshots.recordedOn), desc(valueSnapshots.id))
     .all();
 }
 

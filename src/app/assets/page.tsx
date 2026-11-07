@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { selectLatestSnapshot } from "@/domain/net-worth";
 import { listAssets } from "@/db/repositories/assets";
-import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
+import { getLatestSnapshotsByAssetIds } from "@/db/repositories/snapshots";
 import { formatMoney } from "@/lib/money";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
 import { createAssetAction } from "./actions";
@@ -22,10 +21,12 @@ export default async function AssetsPage({
 }) {
   const params = await searchParams;
   const currency = getDisplayCurrency();
-  const rows = listAssets()
+  const assets = listAssets();
+  const latestByAsset = getLatestSnapshotsByAssetIds(assets.map((a) => a.id));
+  const rows = assets
     .map((asset) => ({
       asset,
-      latest: selectLatestSnapshot(listSnapshotsForAsset(asset.id)),
+      latest: latestByAsset.get(asset.id) ?? null,
     }))
     .sort((a, b) =>
       a.asset.name.localeCompare(b.asset.name, "en", { sensitivity: "base" }),

@@ -1,6 +1,10 @@
+import {
+  computeEmergencyFund,
+  computeEssentialMonthlyAverage,
+} from "@/domain/emergency-fund";
 import { buildFinancialSnapshot } from "@/domain/financial-snapshot";
 import type { FinancialSnapshot } from "@/domain/financial-snapshot";
-import { selectLatestSnapshot } from "@/domain/net-worth";
+import { computeNetWorth } from "@/domain/net-worth";
 import {
   PERSONALITY_TITLES,
   type PersonalityLabel,
@@ -10,20 +14,87 @@ import { listCategories } from "@/db/repositories/categories";
 import { listExpenses } from "@/db/repositories/expenses";
 import { listGoals } from "@/db/repositories/goals";
 import { listIncomes } from "@/db/repositories/incomes";
+import { listLiabilities } from "@/db/repositories/liabilities";
 import { getInvestorProfile } from "@/db/repositories/personality";
-import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
-import { getDashboardSummary } from "@/services/dashboard-summary";
-import { getEmergencyFund } from "@/services/emergency-fund-service";
+import { getSettings } from "@/db/repositories/settings";
+import {
+  getLatestSnapshotsByAssetIds,
+  getLatestSnapshotsByLiabilityIds,
+} from "@/db/repositories/snapshots";
+import { todayUtc } from "@/lib/dates";
 
 function isPersonalityLabel(value: string): value is PersonalityLabel {
   return Object.prototype.hasOwnProperty.call(PERSONALITY_TITLES, value);
 }
 
 export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
-  const fund = getEmergencyFund(asOfDate);
-  const summary = getDashboardSummary();
-  const profile = getInvestorProfile();
+  const asOf = asOfDate ?? todayUtc();
+  const settings = getSettings();
+  const currency = settings?.displayCurrency ?? "EUR";
+  const targetMonths = settings?.emergencyFundTargetMonths ?? 6;
+
   const assets = listAssets();
+  const liabilities = listLiabilities();
+  const incomeRows = listIncomes();
+  const expenseRows = listExpenses();
+  const categoryRows = listCategories();
+  const goalRows = listGoals();
+  const profile = getInvestorProfile();
+
+  const latestByAsset = getLatestSnapshotsByAssetIds(assets.map((a) => a.id));
+  const latestByLiability = getLatestSnapshotsByLiabilityIds(liabilities.map((l) => l.id));
+
+  const netWorth = computeNetWorth(
+    assets.map((a) => ({
+      type: a.type,
+      latestAmountCents: latestByAsset.get(a.id)?.amountCents ?? null,
+    })),
+    liabilities.map((l) => ({
+      latestAmountCents: latestByLiability.get(l.id)?.amountCents ?? null,
+    })),
+  );
+
+  const essential = computeEssentialMonthlyAverage(
+    expenseRows.map((e) => ({
+      amountCents: e.amountCents,
+      occurredOn: e.occurredOn,
+      categoryId: e.categoryId,
+    })),
+    categoryRows
+      .filter((c) => c.kind === "expense")
+      .map((c) => ({ id: c.id, isEssential: c.isEssential })),
+    {
+      emergencyFundTargetMonths: targetMonths,
+      essentialMonthlySpendOverrideCents:
+        settings?.essentialMonthlySpendOverrideCents ?? null,
+    },
+    asOf,
+  );
+
+  const fund = computeEmergencyFund({
+    essentialMonthlyAverageCents: essential.essentialMonthlyAverageCents,
+    targetMonths,
+    assets: assets.map((asset) => {
+      const latest = latestByAsset.get(asset.id);
+      return {
+        id: asset.id,
+        isLiquid: asset.isLiquid,
+        snapshots: latest
+          ? [{ id: latest.id, recordedOn: latest.recordedOn, amountCents: latest.amountCents }]
+          : [],
+      };
+    }),
+    incomes: incomeRows.map((i) => ({
+      amountCents: i.amountCents,
+      occurredOn: i.occurredOn,
+    })),
+    expenses: expenseRows.map((e) => ({
+      amountCents: e.amountCents,
+      occurredOn: e.occurredOn,
+    })),
+    asOfDate: asOf,
+  });
+
   const investorProfile =
     profile && isPersonalityLabel(profile.label)
       ? {
@@ -37,9 +108,9 @@ export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
       : null;
 
   return buildFinancialSnapshot({
-    asOf: fund.asOfDate,
-    currency: fund.currency,
-    netWorth: summary.netWorth,
+    asOf,
+    currency,
+    netWorth,
     emergencyFund: {
       targetMonths: fund.targetMonths,
       targetCents: fund.targetCents,
@@ -50,36 +121,34 @@ export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
       monthsToCloseGap: fund.monthsToCloseGap,
       essentialMonthlyAverageCents: fund.essentialMonthlyAverageCents,
     },
-    incomes: listIncomes().map((income) => ({
-      amountCents: income.amountCents,
-      occurredOn: income.occurredOn,
+    incomes: incomeRows.map((i) => ({
+      amountCents: i.amountCents,
+      occurredOn: i.occurredOn,
     })),
-    expenses: listExpenses().map((expense) => ({
-      amountCents: expense.amountCents,
-      occurredOn: expense.occurredOn,
-      categoryId: expense.categoryId,
+    expenses: expenseRows.map((e) => ({
+      amountCents: e.amountCents,
+      occurredOn: e.occurredOn,
+      categoryId: e.categoryId,
     })),
-    categories: listCategories().map((category) => ({
-      id: category.id,
-      name: category.name,
-      kind: category.kind === "income" ? "income" : "expense",
-      isEssential: category.isEssential,
+    categories: categoryRows.map((c) => ({
+      id: c.id,
+      name: c.name,
+      kind: c.kind === "income" ? "income" : "expense",
+      isEssential: c.isEssential,
     })),
-    goals: listGoals().map((goal) => ({
-      id: goal.id,
-      name: goal.name,
-      targetAmountCents: goal.targetAmountCents,
-      targetDate: goal.targetDate,
-      setAsideCents: goal.setAsideCents,
-      plannedMonthlyCents: goal.plannedMonthlyCents,
-      expectedAnnualReturnBps: goal.expectedAnnualReturnBps,
+    goals: goalRows.map((g) => ({
+      id: g.id,
+      name: g.name,
+      targetAmountCents: g.targetAmountCents,
+      targetDate: g.targetDate,
+      setAsideCents: g.setAsideCents,
+      plannedMonthlyCents: g.plannedMonthlyCents,
+      expectedAnnualReturnBps: g.expectedAnnualReturnBps,
     })),
     investorProfile,
     allocationAssets: assets.map((asset) => ({
       type: asset.type,
-      latestAmountCents:
-        selectLatestSnapshot(listSnapshotsForAsset(asset.id))?.amountCents ??
-        null,
+      latestAmountCents: latestByAsset.get(asset.id)?.amountCents ?? null,
       includeInAllocation: asset.includeInAllocation,
       isLiquid: asset.isLiquid,
       sleevePercents: asset.sleevePercents,

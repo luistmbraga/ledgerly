@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { LIABILITY_TYPES, selectLatestSnapshot } from "@/domain/net-worth";
+import { LIABILITY_TYPES } from "@/domain/net-worth";
 import { listLiabilities } from "@/db/repositories/liabilities";
-import { listSnapshotsForLiability } from "@/db/repositories/snapshots";
+import { getLatestSnapshotsByLiabilityIds } from "@/db/repositories/snapshots";
 import { formatMoney } from "@/lib/money";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
 import { createLiabilityAction } from "./actions";
@@ -22,10 +22,12 @@ export default async function LiabilitiesPage({
 }) {
   const params = await searchParams;
   const currency = getDisplayCurrency();
-  const rows = listLiabilities()
+  const liabilities = listLiabilities();
+  const latestByLiability = getLatestSnapshotsByLiabilityIds(liabilities.map((l) => l.id));
+  const rows = liabilities
     .map((liability) => ({
       liability,
-      latest: selectLatestSnapshot(listSnapshotsForLiability(liability.id)),
+      latest: latestByLiability.get(liability.id) ?? null,
     }))
     .sort((a, b) =>
       a.liability.name.localeCompare(b.liability.name, "en", {

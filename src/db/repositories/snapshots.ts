@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { isValidIsoDate } from "../../lib/dates";
 import { db } from "../client";
 import { assets, expenses, incomes, liabilities, valueSnapshots, type ValueSnapshotRow } from "../schema";
@@ -30,6 +30,64 @@ function assertSnapshotInput(input: SnapshotInput): SnapshotInput {
     invalid("Note must be 500 characters or fewer.");
   }
   return input;
+}
+
+export function getLatestSnapshot(assetId: number): SnapshotRecord | null {
+  return (
+    db
+      .select()
+      .from(valueSnapshots)
+      .where(eq(valueSnapshots.assetId, assetId))
+      .orderBy(desc(valueSnapshots.recordedOn), desc(valueSnapshots.id))
+      .limit(1)
+      .get() ?? null
+  );
+}
+
+export function getLatestSnapshotForLiability(liabilityId: number): SnapshotRecord | null {
+  return (
+    db
+      .select()
+      .from(valueSnapshots)
+      .where(eq(valueSnapshots.liabilityId, liabilityId))
+      .orderBy(desc(valueSnapshots.recordedOn), desc(valueSnapshots.id))
+      .limit(1)
+      .get() ?? null
+  );
+}
+
+export function getLatestSnapshotsByAssetIds(assetIds: number[]): Map<number, SnapshotRecord> {
+  if (assetIds.length === 0) return new Map();
+  const rows = db
+    .select()
+    .from(valueSnapshots)
+    .where(inArray(valueSnapshots.assetId, assetIds))
+    .orderBy(desc(valueSnapshots.recordedOn), desc(valueSnapshots.id))
+    .all();
+  const result = new Map<number, SnapshotRecord>();
+  for (const row of rows) {
+    if (row.assetId !== null && !result.has(row.assetId)) {
+      result.set(row.assetId, row);
+    }
+  }
+  return result;
+}
+
+export function getLatestSnapshotsByLiabilityIds(liabilityIds: number[]): Map<number, SnapshotRecord> {
+  if (liabilityIds.length === 0) return new Map();
+  const rows = db
+    .select()
+    .from(valueSnapshots)
+    .where(inArray(valueSnapshots.liabilityId, liabilityIds))
+    .orderBy(desc(valueSnapshots.recordedOn), desc(valueSnapshots.id))
+    .all();
+  const result = new Map<number, SnapshotRecord>();
+  for (const row of rows) {
+    if (row.liabilityId !== null && !result.has(row.liabilityId)) {
+      result.set(row.liabilityId, row);
+    }
+  }
+  return result;
 }
 
 export function listSnapshotsForAsset(assetId: number): SnapshotRecord[] {

@@ -1,11 +1,11 @@
-import { computeNetWorth, selectLatestSnapshot } from "@/domain/net-worth";
+import { computeNetWorth } from "@/domain/net-worth";
 import type { AssetType, NetWorthResult } from "@/domain/net-worth";
 import { listAssets } from "@/db/repositories/assets";
 import { listLiabilities } from "@/db/repositories/liabilities";
 import { getSettings } from "@/db/repositories/settings";
 import {
-  listSnapshotsForAsset,
-  listSnapshotsForLiability,
+  getLatestSnapshotsByAssetIds,
+  getLatestSnapshotsByLiabilityIds,
 } from "@/db/repositories/snapshots";
 
 export type DashboardSummary = {
@@ -23,16 +23,14 @@ export function getDisplayCurrency(): string {
 export function getDashboardSummary(): DashboardSummary {
   const assets = listAssets();
   const liabilities = listLiabilities();
+  const latestByAsset = getLatestSnapshotsByAssetIds(assets.map((a) => a.id));
+  const latestByLiability = getLatestSnapshotsByLiabilityIds(liabilities.map((l) => l.id));
   const assetsWithLatest = assets.map((asset) => ({
     type: asset.type,
-    latestAmountCents:
-      selectLatestSnapshot(listSnapshotsForAsset(asset.id))?.amountCents ??
-      null,
+    latestAmountCents: latestByAsset.get(asset.id)?.amountCents ?? null,
   }));
   const liabilitiesWithLatest = liabilities.map((liability) => ({
-    latestAmountCents:
-      selectLatestSnapshot(listSnapshotsForLiability(liability.id))
-        ?.amountCents ?? null,
+    latestAmountCents: latestByLiability.get(liability.id)?.amountCents ?? null,
   }));
 
   return {

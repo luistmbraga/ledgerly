@@ -10,7 +10,7 @@ import { listCategories } from "@/db/repositories/categories";
 import { listExpenses } from "@/db/repositories/expenses";
 import { listIncomes } from "@/db/repositories/incomes";
 import { getSettings } from "@/db/repositories/settings";
-import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
+import { getLatestSnapshotsByAssetIds } from "@/db/repositories/snapshots";
 import { todayUtc } from "@/lib/dates";
 
 export type EmergencyFundAssetLine = ContributingAsset & {
@@ -48,18 +48,20 @@ export function getEmergencyFund(asOfDate = todayUtc()): EmergencyFundView {
   );
 
   const assetRows = listAssets();
+  const latestByAsset = getLatestSnapshotsByAssetIds(assetRows.map((a) => a.id));
   const fund = computeEmergencyFund({
     essentialMonthlyAverageCents: essential.essentialMonthlyAverageCents,
     targetMonths,
-    assets: assetRows.map((asset) => ({
-      id: asset.id,
-      isLiquid: asset.isLiquid,
-      snapshots: listSnapshotsForAsset(asset.id).map((snapshot) => ({
-        id: snapshot.id,
-        recordedOn: snapshot.recordedOn,
-        amountCents: snapshot.amountCents,
-      })),
-    })),
+    assets: assetRows.map((asset) => {
+      const latest = latestByAsset.get(asset.id);
+      return {
+        id: asset.id,
+        isLiquid: asset.isLiquid,
+        snapshots: latest
+          ? [{ id: latest.id, recordedOn: latest.recordedOn, amountCents: latest.amountCents }]
+          : [],
+      };
+    }),
     incomes: listIncomes().map((income) => ({
       amountCents: income.amountCents,
       occurredOn: income.occurredOn,
