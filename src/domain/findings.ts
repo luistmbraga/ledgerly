@@ -1,5 +1,6 @@
 import type { GoalStatus } from "./goals";
 import { formatMoney } from "../lib/money";
+import { formatRatio } from "../lib/percent";
 
 export type FindingSeverity = "info" | "warn";
 
@@ -182,9 +183,8 @@ export function buildFindings(snapshotInputs: FindingsInput): Finding[] {
 }
 
 function percentText(value: number | string | boolean | null | undefined): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "n/a";
-  const scaled = Math.round(value * 1000) / 10;
-  return Number.isInteger(scaled) ? String(scaled) : scaled.toFixed(1);
+  if (typeof value !== "number") return "n/a";
+  return formatRatio(value) ?? "n/a";
 }
 
 function currencyOf(data: FindingData): string {
@@ -210,27 +210,27 @@ const TEMPLATES: Record<string, { title: string; body: (data: FindingData) => st
   low_savings_rate: {
     title: "Low savings rate",
     body: (data) =>
-      `Your savings rate is ${percentText(data.savingsRate)}% over the last 3 months. Consider reducing discretionary spend.`,
+      `Your savings rate is ${percentText(data.savingsRate)} over the last 3 months. Consider reducing discretionary spend.`,
   },
   high_discretionary: {
     title: "High discretionary spend",
     body: (data) =>
-      `Discretionary spending is ${percentText(data.discretionaryShare)}% of expenses over the last 3 months.`,
+      `Discretionary spending is ${percentText(data.discretionaryShare)} of expenses over the last 3 months.`,
   },
   uncategorized_expenses: {
     title: "Uncategorized expenses",
     body: (data) =>
-      `Uncategorized expenses are ${percentText(data.uncategorizedCountShare)}% by count and ${percentText(data.uncategorizedAmountShare)}% by amount over the last 3 months.`,
+      `Uncategorized expenses are ${percentText(data.uncategorizedCountShare)} by count and ${percentText(data.uncategorizedAmountShare)} by amount over the last 3 months.`,
   },
   emergency_fund_gap: {
     title: "Emergency fund gap",
     body: (data) =>
-      `Your emergency fund is short ${moneyText(data, "gapCents")} (${percentText(data.fundedRatio)}% funded).`,
+      `Your emergency fund is short ${moneyText(data, "gapCents")} (${percentText(data.fundedRatio)} funded).`,
   },
   emergency_fund_met: {
     title: "Emergency fund met",
     body: (data) =>
-      `Your emergency fund meets its target (${percentText(data.fundedRatio)}% funded).`,
+      `Your emergency fund meets its target (${percentText(data.fundedRatio)} funded).`,
   },
   goal_shortfall: {
     title: "Goal shortfall",

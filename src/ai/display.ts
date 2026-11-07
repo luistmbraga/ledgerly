@@ -1,11 +1,9 @@
+import { formatBps, formatRatio } from "@/lib/percent";
 import { formatMoney } from "@/lib/money";
 
-/** One-decimal percent from a 0–1 ratio (matches findings percentText). */
+/** One-decimal percent from a 0–1 ratio. */
 export function formatRatioPercent(value: number | null): string | null {
-  if (value === null || !Number.isFinite(value)) return null;
-  const scaled = Math.round(value * 1000) / 10;
-  const text = Number.isInteger(scaled) ? String(scaled) : scaled.toFixed(1);
-  return `${text}%`;
+  return formatRatio(value);
 }
 
 /** Whole or signed percentage points already stored as integers. */
@@ -18,10 +16,9 @@ export function formatDriftPp(value: number): string {
   return `${value} pp`;
 }
 
-/** Basis points (e.g. 300) as an annual percent string. */
+/** Basis points (e.g. 300) as an annual percent string using integer arithmetic. */
 export function formatBpsPercent(bps: number | null): string | null {
-  if (bps === null || !Number.isFinite(bps)) return null;
-  return `${bps / 100}%`;
+  return formatBps(bps);
 }
 
 export function formatCentsMoney(

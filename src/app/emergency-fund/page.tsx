@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/money";
+import { formatRatio } from "@/lib/percent";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
 
 export const dynamic = "force-dynamic";
@@ -105,7 +106,7 @@ export default function EmergencyFundPage() {
               ? "No essential-spend target yet."
               : fund.fundedRatio === null
                 ? "No target yet."
-                : `${formatPercent(fund.fundedRatio)} funded.`}
+                : `${formatRatio(fund.fundedRatio) ?? "0%"} funded.`}
           </p>
           {funded ? (
             <p className="text-sm font-medium text-teal-900">
@@ -167,10 +168,6 @@ export default function EmergencyFundPage() {
       </div>
     </div>
   );
-}
-
-function formatPercent(ratio: number): string {
-  return `${Math.round(ratio * 100)}%`;
 }
 
 function formatMonths(value: number): string {

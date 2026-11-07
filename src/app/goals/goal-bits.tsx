@@ -1,4 +1,5 @@
 import type { GoalStatus, HorizonBucket } from "@/domain/goals";
+import { ratioToVisualPercent } from "@/lib/percent";
 import { BUCKET_LABELS, STATUS_LABELS } from "./labels";
 
 const STATUS_CLASS: Record<GoalStatus, string> = {
@@ -36,7 +37,7 @@ export function ProgressBar({
     targetAmountCents > 0
       ? Math.min(1, Math.max(0, setAsideCents / targetAmountCents))
       : 0;
-  const percent = Math.round(ratio * 100);
+  const percent = ratioToVisualPercent(ratio);
 
   return (
     <div

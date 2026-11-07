@@ -3,17 +3,19 @@ export type MoneyParseResult =
   | { ok: false; error: string };
 
 export function formatMoney(cents: number, currency: string): string {
-  const amount = cents / 100;
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(cents / 100);
   } catch {
-    const sign = cents < 0 ? "-" : "";
-    return `${sign}${Math.abs(amount).toFixed(2)} ${currency}`;
+    const negative = cents < 0;
+    const absolute = Math.abs(Math.trunc(cents));
+    const whole = Math.trunc(absolute / 100);
+    const fraction = String(absolute % 100).padStart(2, "0");
+    return `${negative ? "-" : ""}${whole}.${fraction} ${currency}`;
   }
 }
 

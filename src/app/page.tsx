@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ASSET_TYPES } from "@/domain/net-worth";
 import { formatMoney } from "@/lib/money";
+import { formatRatio } from "@/lib/percent";
 import { getDashboardSummary } from "@/services/dashboard-summary";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
 import { narrateDashboardTips } from "@/ai/tasks/tips";
@@ -34,8 +35,7 @@ export default async function DashboardPage({
   const missingEssentialTarget =
     fund.essentialSpendSource === "computed" &&
     fund.essentialMonthlyAverageCents === 0;
-  const fundedPercent =
-    fund.fundedRatio === null ? null : Math.round(fund.fundedRatio * 100);
+  const fundedRatio = fund.fundedRatio;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
@@ -47,7 +47,7 @@ export default async function DashboardPage({
       </header>
 
       <section className="mt-6 flex items-center gap-4 rounded-md border border-stone-200 px-4 py-3">
-        <ProgressRing percent={fundedPercent} funded={funded} />
+        <ProgressRing ratio={fundedRatio} funded={funded} />
         <div>
           <h2 className="text-sm font-medium text-stone-800">Emergency fund</h2>
           <p className="mt-1 text-sm text-stone-700">
@@ -283,17 +283,18 @@ function GoalsSummary({
 }
 
 function ProgressRing({
-  percent,
+  ratio,
   funded,
 }: {
-  percent: number | null;
+  ratio: number | null;
   funded: boolean;
 }) {
-  const ratio = percent === null ? (funded ? 1 : 0) : Math.min(1, Math.max(0, percent / 100));
+  const arcRatio = ratio === null ? (funded ? 1 : 0) : Math.min(1, Math.max(0, ratio));
   const radius = 18;
   const circumference = 2 * Math.PI * radius;
-  const dash = circumference * ratio;
-  const label = percent === null ? (funded ? "Funded" : "No target") : `${percent}% funded`;
+  const dash = circumference * arcRatio;
+  const displayText = ratio === null ? (funded ? "Funded" : "No target") : (formatRatio(ratio) ?? "—");
+  const label = ratio === null ? (funded ? "Funded" : "No target") : `${displayText} funded`;
 
   return (
     <svg
@@ -324,7 +325,7 @@ function ProgressRing({
         fill="#44403c"
         fontSize="10"
       >
-        {percent === null ? "—" : `${Math.min(percent, 999)}%`}
+        {ratio === null ? "—" : displayText}
       </text>
     </svg>
   );
