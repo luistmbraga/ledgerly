@@ -21,7 +21,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-stone-50 text-stone-900 antialiased">
         <div className="flex min-h-screen">
           <Sidebar briefingLocked={!getInvestorProfile()} />
-          <div className="min-w-0 flex-1">{children}</div>
+          <main className="min-w-0 flex-1 pb-14 md:pb-0">{children}</main>
         </div>
       </body>
     </html>

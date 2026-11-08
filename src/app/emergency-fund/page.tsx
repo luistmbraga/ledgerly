@@ -139,31 +139,33 @@ export default function EmergencyFundPage() {
               </Link>
             </div>
           ) : (
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-stone-200 text-stone-600">
-                <tr>
-                  <th className="py-2 font-medium">Name</th>
-                  <th className="py-2 text-right font-medium">Latest snapshot</th>
-                </tr>
-              </thead>
-              <tbody>
-                {fund.assets.map((asset) => (
-                  <tr key={asset.id} className="border-b border-stone-100">
-                    <td className="py-2">
-                      <Link
-                        href={`/assets/${asset.id}`}
-                        className="font-medium text-teal-800 hover:text-teal-900"
-                      >
-                        {asset.name}
-                      </Link>
-                    </td>
-                    <td className="py-2 text-right text-stone-800">
-                      {formatMoney(asset.amountCents, fund.currency)}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-stone-200 text-stone-600">
+                  <tr>
+                    <th className="py-2 font-medium">Name</th>
+                    <th className="py-2 text-right font-medium">Latest snapshot</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {fund.assets.map((asset) => (
+                    <tr key={asset.id} className="border-b border-stone-100">
+                      <td className="py-2">
+                        <Link
+                          href={`/assets/${asset.id}`}
+                          className="font-medium text-teal-800 hover:text-teal-900"
+                        >
+                          {asset.name}
+                        </Link>
+                      </td>
+                      <td className="py-2 text-right text-stone-800">
+                        {formatMoney(asset.amountCents, fund.currency)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
       </div>

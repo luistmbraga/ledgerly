@@ -31,12 +31,49 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
-      <header className="border-b border-stone-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-sm text-stone-600">
-          Net worth from the latest snapshot of each asset and liability.
-        </p>
-      </header>
+      {/* Net worth headline — always first per ux.md:44 */}
+      {hasAssets ? (
+        <header className="border-b border-stone-200 pb-4">
+          <p className="text-sm font-medium text-stone-600">Net worth</p>
+          <h1 className="mt-1 text-4xl font-semibold tracking-tight">
+            {formatMoney(netWorth.netWorthCents, currency)}
+          </h1>
+          <p className="mt-2 text-sm text-stone-700">
+            {formatMoney(netWorth.totalAssetsCents, currency)} assets minus{" "}
+            {formatMoney(netWorth.totalLiabilitiesCents, currency)} liabilities
+          </p>
+        </header>
+      ) : (
+        <header className="border-b border-stone-200 pb-4">
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="mt-1 text-sm text-stone-600">
+            Net worth from the latest snapshot of each asset and liability.
+          </p>
+        </header>
+      )}
+
+      {!hasAssets && (
+        <div className="mt-6 flex flex-col gap-4">
+          <p className="text-sm text-stone-700">
+            No assets yet. Add your first asset, then record a snapshot to see
+            net worth.
+          </p>
+          <Link
+            href="/assets"
+            className="w-fit rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+          >
+            Add your first asset
+          </Link>
+          {summary.liabilityCount > 0 ? (
+            <p className="text-sm text-stone-700">
+              Net worth {formatMoney(netWorth.netWorthCents, currency)} (
+              {formatMoney(netWorth.totalAssetsCents, currency)} assets minus{" "}
+              {formatMoney(netWorth.totalLiabilitiesCents, currency)}{" "}
+              liabilities).
+            </p>
+          ) : null}
+        </div>
+      )}
 
       <section className="mt-6 flex items-center gap-4 rounded-md border border-stone-200 px-4 py-3">
         <ProgressRing ratio={fundedRatio} funded={funded} />
@@ -90,19 +127,8 @@ export default async function DashboardPage() {
         <TipsPanelLoader asOfDate={asOfDate} />
       </Suspense>
 
-      {hasAssets ? (
+      {hasAssets && (
         <div className="mt-6 flex flex-col gap-8">
-          <section>
-            <h2 className="text-sm font-medium text-stone-600">Net worth</h2>
-            <p className="mt-1 text-4xl font-semibold tracking-tight">
-              {formatMoney(netWorth.netWorthCents, currency)}
-            </p>
-            <p className="mt-2 text-sm text-stone-700">
-              {formatMoney(netWorth.totalAssetsCents, currency)} assets minus{" "}
-              {formatMoney(netWorth.totalLiabilitiesCents, currency)} liabilities
-            </p>
-          </section>
-
           <section className="flex flex-col gap-4">
             <h2 className="text-lg font-semibold">Assets and liabilities</h2>
             <Bar
@@ -142,27 +168,6 @@ export default async function DashboardPage() {
               />
             ))}
           </section>
-        </div>
-      ) : (
-        <div className="mt-6 flex flex-col gap-4">
-          <p className="text-sm text-stone-700">
-            No assets yet. Add your first asset, then record a snapshot to see
-            net worth.
-          </p>
-          <Link
-            href="/assets"
-            className="w-fit rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-          >
-            Add your first asset
-          </Link>
-          {summary.liabilityCount > 0 ? (
-            <p className="text-sm text-stone-700">
-              Net worth {formatMoney(netWorth.netWorthCents, currency)} (
-              {formatMoney(netWorth.totalAssetsCents, currency)} assets minus{" "}
-              {formatMoney(netWorth.totalLiabilitiesCents, currency)}{" "}
-              liabilities).
-            </p>
-          ) : null}
         </div>
       )}
     </div>
