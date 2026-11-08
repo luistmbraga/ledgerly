@@ -1,5 +1,6 @@
 "use client";
 
+import { useActionState } from "react";
 import {
   ALLOCATION_SLEEVES,
   defaultIncludeInAllocation,
@@ -9,6 +10,8 @@ import {
 } from "@/domain/allocation";
 import { ASSET_TYPES, type AssetType } from "@/domain/net-worth";
 import { useState } from "react";
+import { SubmitButton } from "@/components/submit-button";
+import type { ActionState } from "@/lib/action-state";
 import { ASSET_TYPE_DESCRIPTIONS, ASSET_TYPE_LABELS } from "./labels";
 
 const SLEEVE_LABELS: Record<AllocationSleeve, string> = {
@@ -19,7 +22,7 @@ const SLEEVE_LABELS: Record<AllocationSleeve, string> = {
 };
 
 type AssetFormProps = {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   submitLabel: string;
   id?: number;
   defaults?: {
@@ -38,6 +41,8 @@ export function AssetForm({
   id,
   defaults,
 }: AssetFormProps) {
+  const [state, formAction] = useActionState(action, null);
+
   const initialType = defaults?.type ?? "cash";
   const [type, setType] = useState<AssetType>(initialType);
   const [isLiquid, setIsLiquid] = useState(
@@ -60,14 +65,25 @@ export function AssetForm({
   );
 
   const sleeveSum = ALLOCATION_SLEEVES.reduce(
-    (sum, sleeve) => sum + (Number.isFinite(sleevePercents[sleeve]) ? sleevePercents[sleeve] : 0),
+    (sum, sleeve) =>
+      sum +
+      (Number.isFinite(sleevePercents[sleeve]) ? sleevePercents[sleeve] : 0),
     0,
   );
   const showSplitNote = type === "brokerage" || type === "retirement";
 
+  const e = state?.errors ?? {};
+
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form action={formAction} className="flex flex-col gap-4">
       {id !== undefined ? <input type="hidden" name="id" value={id} /> : null}
+
+      {e._form ? (
+        <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {e._form}
+        </p>
+      ) : null}
+
       <div className="flex flex-col gap-1">
         <label htmlFor={fieldId(id, "name")} className="text-sm font-medium">
           Name
@@ -80,9 +96,17 @@ export function AssetForm({
           maxLength={200}
           defaultValue={defaults?.name ?? ""}
           autoComplete="off"
-          className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
+          aria-invalid={!!e.name}
+          aria-describedby={e.name ? fieldId(id, "name-error") : undefined}
+          className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700 aria-invalid:border-red-400"
         />
+        {e.name ? (
+          <p id={fieldId(id, "name-error")} role="alert" className="text-sm text-red-700">
+            {e.name}
+          </p>
+        ) : null}
       </div>
+
       <div className="flex flex-col gap-1">
         <label htmlFor={fieldId(id, "type")} className="text-sm font-medium">
           Type
@@ -100,7 +124,8 @@ export function AssetForm({
             }
             if (!lockSleeveDefault) setSleevePercents(defaultSleevePercents(next));
           }}
-          className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
+          aria-invalid={!!e.type}
+          className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700 aria-invalid:border-red-400"
         >
           {ASSET_TYPES.map((assetType) => (
             <option key={assetType} value={assetType}>
@@ -108,10 +133,15 @@ export function AssetForm({
             </option>
           ))}
         </select>
-        <p className="text-sm text-stone-600">
-          {ASSET_TYPE_DESCRIPTIONS[type]}
-        </p>
+        {e.type ? (
+          <p role="alert" className="text-sm text-red-700">
+            {e.type}
+          </p>
+        ) : (
+          <p className="text-sm text-stone-600">{ASSET_TYPE_DESCRIPTIONS[type]}</p>
+        )}
       </div>
+
       <div className="flex flex-col gap-1">
         <label htmlFor={fieldId(id, "notes")} className="text-sm font-medium">
           Notes
@@ -122,9 +152,17 @@ export function AssetForm({
           rows={2}
           maxLength={2000}
           defaultValue={defaults?.notes ?? ""}
-          className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
+          aria-invalid={!!e.notes}
+          aria-describedby={e.notes ? fieldId(id, "notes-error") : undefined}
+          className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700 aria-invalid:border-red-400"
         />
+        {e.notes ? (
+          <p id={fieldId(id, "notes-error")} role="alert" className="text-sm text-red-700">
+            {e.notes}
+          </p>
+        ) : null}
       </div>
+
       <label className="flex items-start gap-2 text-sm text-stone-800">
         <input
           type="checkbox"
@@ -144,6 +182,7 @@ export function AssetForm({
           </span>
         </span>
       </label>
+
       <label className="flex items-start gap-2 text-sm text-stone-800">
         <input
           type="checkbox"
@@ -163,13 +202,16 @@ export function AssetForm({
           </span>
         </span>
       </label>
+
       {includeInAllocation ? (
         type === "cash" ? (
           <>
             <p className="text-sm text-stone-600">
               Cash assets stay in the cash sleeve at 100%.
             </p>
-            <SleeveHiddenInputs percents={{ cash: 100, bonds: 0, equities: 0, other: 0 }} />
+            <SleeveHiddenInputs
+              percents={{ cash: 100, bonds: 0, equities: 0, other: 0 }}
+            />
           </>
         ) : (
           <fieldset className="flex flex-col gap-2">
@@ -205,30 +247,30 @@ export function AssetForm({
                 </div>
               ))}
             </div>
-            <p
-              className={
-                sleeveSum === 100
-                  ? "text-sm text-stone-600"
-                  : "text-sm text-amber-800"
-              }
-            >
-              {showSplitNote
-                ? "Split a mixed account across sleeves, for example 60% equities and 40% bonds. "
-                : null}
-              Percents must be whole numbers that sum to 100
-              {sleeveSum === 100 ? "." : ` (now ${sleeveSum}).`}
-            </p>
+            {e.sleeves ? (
+              <p role="alert" className="text-sm text-red-700">
+                {e.sleeves}
+              </p>
+            ) : (
+              <p
+                className={
+                  sleeveSum === 100 ? "text-sm text-stone-600" : "text-sm text-amber-800"
+                }
+              >
+                {showSplitNote
+                  ? "Split a mixed account across sleeves, for example 60% equities and 40% bonds. "
+                  : null}
+                Percents must be whole numbers that sum to 100
+                {sleeveSum === 100 ? "." : ` (now ${sleeveSum}).`}
+              </p>
+            )}
           </fieldset>
         )
       ) : (
         <SleeveHiddenInputs percents={sleevePercents} />
       )}
-      <button
-        type="submit"
-        className="w-fit rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-      >
-        {submitLabel}
-      </button>
+
+      <SubmitButton>{submitLabel}</SubmitButton>
     </form>
   );
 }

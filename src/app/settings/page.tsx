@@ -1,72 +1,17 @@
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { MoneyInput } from "@/components/money-input";
-import { getSettings, updateSettings } from "@/db/repositories/settings";
-import { centsToDecimalInput, formatMoney, parseMoneyToCents } from "@/lib/money";
+import { getSettings } from "@/db/repositories/settings";
+import { SettingsForm } from "./settings-form";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-async function saveSettings(formData: FormData) {
-  "use server";
-
-  const errors: string[] = [];
-  const currency = String(formData.get("displayCurrency") ?? "")
-    .trim()
-    .toUpperCase();
-  if (!/^[A-Z]{3}$/.test(currency)) {
-    errors.push("Display currency must be 3 letters.");
-  }
-
-  const monthsRaw = String(formData.get("emergencyFundTargetMonths") ?? "").trim();
-  const months = Number(monthsRaw);
-  if (!/^\d+$/.test(monthsRaw) || months < 1 || months > 24) {
-    errors.push("Emergency fund target months must be a whole number from 1 to 24.");
-  }
-
-  const overrideRaw = String(
-    formData.get("essentialMonthlySpendOverride") ?? "",
-  );
-  let overrideCents: number | null = null;
-  if (overrideRaw.trim() !== "") {
-    const parsed = parseMoneyToCents(overrideRaw);
-    if (!parsed.ok) {
-      errors.push(parsed.error);
-    } else {
-      overrideCents = parsed.cents;
-    }
-  }
-
-  if (errors.length > 0) {
-    redirect(`/settings?error=${encodeURIComponent(errors.join(" "))}`);
-  }
-
-  const existing = getSettings();
-  if (!existing) {
-    redirect(
-      `/settings?error=${encodeURIComponent("Settings are not initialized. Run pnpm db:migrate.")}`,
-    );
-  }
-
-  updateSettings({
-    displayCurrency: currency,
-    emergencyFundTargetMonths: months,
-    essentialMonthlySpendOverrideCents: overrideCents,
-  });
-
-  revalidatePath("/settings");
-  redirect("/settings?saved=1");
-}
-
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ saved?: string }>;
 }) {
   const params = await searchParams;
   const row = getSettings();
   const aiConfigured = Boolean(process.env.AI_API_KEY?.trim());
-  const error = params.error;
   const saved = params.saved === "1";
 
   return (
@@ -87,86 +32,13 @@ export default async function SettingsPage({
             Settings saved.
           </p>
         ) : null}
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-          >
-            {error}
-          </p>
-        ) : null}
 
         {row ? (
-          <form action={saveSettings} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="displayCurrency"
-                className="text-sm font-medium text-stone-800"
-              >
-                Display currency
-              </label>
-              <input
-                id="displayCurrency"
-                name="displayCurrency"
-                type="text"
-                required
-                minLength={3}
-                maxLength={3}
-                pattern="[A-Za-z]{3}"
-                autoComplete="off"
-                defaultValue={row.displayCurrency}
-                aria-describedby="displayCurrency-hint"
-                className="w-32 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm uppercase text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
-              />
-              <p id="displayCurrency-hint" className="text-sm text-amber-800">
-                Does not convert existing amounts. One display currency is used
-                for every figure (default EUR).
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="emergencyFundTargetMonths"
-                className="text-sm font-medium text-stone-800"
-              >
-                Emergency fund target months
-              </label>
-              <input
-                id="emergencyFundTargetMonths"
-                name="emergencyFundTargetMonths"
-                type="number"
-                required
-                min={1}
-                max={24}
-                step={1}
-                defaultValue={row.emergencyFundTargetMonths}
-                className="w-32 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
-              />
-            </div>
-
-            <MoneyInput
-              id="essentialMonthlySpendOverride"
-              name="essentialMonthlySpendOverride"
-              label="Essential monthly spend override"
-              defaultValue={
-                row.essentialMonthlySpendOverrideCents === null
-                  ? ""
-                  : centsToDecimalInput(row.essentialMonthlySpendOverrideCents)
-              }
-              hint={
-                row.essentialMonthlySpendOverrideCents === null
-                  ? "Optional. Leave blank to clear. Example: 1500.00."
-                  : `Optional. Current value ${formatMoney(row.essentialMonthlySpendOverrideCents, row.displayCurrency)}. Leave blank to clear.`
-              }
-            />
-
-            <button
-              type="submit"
-              className="w-fit rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-            >
-              Save settings
-            </button>
-          </form>
+          <SettingsForm
+            displayCurrency={row.displayCurrency}
+            emergencyFundTargetMonths={row.emergencyFundTargetMonths}
+            essentialMonthlySpendOverrideCents={row.essentialMonthlySpendOverrideCents}
+          />
         ) : (
           <p role="alert" className="text-sm text-red-800">
             Settings are not initialized. Run pnpm db:migrate.

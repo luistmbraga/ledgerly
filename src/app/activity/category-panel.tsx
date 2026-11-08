@@ -1,4 +1,9 @@
+"use client";
+
+import { useActionState } from "react";
 import type { CategoryKind, CategoryRecord } from "@/db/repositories/categories";
+import type { ActionState } from "@/lib/action-state";
+import { SubmitButton } from "@/components/submit-button";
 import {
   createCategoryAction,
   deleteCategoryAction,
@@ -10,6 +15,106 @@ type CategoryPanelProps = {
   kind: CategoryKind;
   categories: CategoryRecord[];
 };
+
+function CategoryUpdateForm({
+  category,
+  kind,
+}: {
+  category: CategoryRecord;
+  kind: CategoryKind;
+}) {
+  const [state, formAction] = useActionState(updateCategoryAction, null);
+  const e = state?.errors ?? {};
+  const tab = kind === "income" ? "income" : "expenses";
+
+  return (
+    <form action={formAction} className="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="id" value={category.id} />
+      <input type="hidden" name="kind" value={kind} />
+      <div className="flex flex-col gap-1">
+        <input
+          aria-label={`${category.name} name`}
+          name="name"
+          type="text"
+          required
+          maxLength={80}
+          defaultValue={category.name}
+          aria-invalid={!!e.name}
+          className="w-56 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700 aria-invalid:border-red-400"
+        />
+        {e.name ? (
+          <p role="alert" className="text-sm text-red-700">
+            {e.name}
+          </p>
+        ) : null}
+        {e._form ? (
+          <p role="alert" className="text-sm text-red-700">
+            {e._form}
+          </p>
+        ) : null}
+      </div>
+      {kind === "expense" ? (
+        <label className="flex items-center gap-2 text-sm text-stone-800">
+          <input
+            type="checkbox"
+            name="isEssential"
+            value="1"
+            defaultChecked={category.isEssential}
+          />
+          Essential
+        </label>
+      ) : null}
+      <SubmitButton className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2 disabled:opacity-60">
+        Save
+      </SubmitButton>
+    </form>
+  );
+}
+
+function CategoryCreateForm({ kind }: { kind: CategoryKind }) {
+  const [state, formAction] = useActionState(createCategoryAction, null);
+  const e = state?.errors ?? {};
+
+  return (
+    <form action={formAction} className="mt-4 flex flex-wrap items-end gap-3">
+      <input type="hidden" name="kind" value={kind} />
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor={`new-${kind}-category`}
+          className="text-sm font-medium text-stone-800"
+        >
+          New category
+        </label>
+        <input
+          id={`new-${kind}-category`}
+          name="name"
+          type="text"
+          required
+          maxLength={80}
+          aria-invalid={!!e.name}
+          className="w-56 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700 aria-invalid:border-red-400"
+        />
+        {e.name ? (
+          <p role="alert" className="text-sm text-red-700">
+            {e.name}
+          </p>
+        ) : null}
+        {e._form ? (
+          <p role="alert" className="text-sm text-red-700">
+            {e._form}
+          </p>
+        ) : null}
+      </div>
+      {kind === "expense" ? (
+        <label className="flex items-center gap-2 pb-2 text-sm text-stone-800">
+          <input type="checkbox" name="isEssential" value="1" />
+          Essential
+        </label>
+      ) : null}
+      <SubmitButton>Add category</SubmitButton>
+    </form>
+  );
+}
 
 export function CategoryPanel({ kind, categories }: CategoryPanelProps) {
   const tab = kind === "income" ? "income" : "expenses";
@@ -46,39 +151,7 @@ export function CategoryPanel({ kind, categories }: CategoryPanelProps) {
                 <tr key={category.id} className="border-b border-stone-100">
                   <td className="py-3 pr-4" colSpan={kind === "expense" ? 3 : 2}>
                     <div className="flex flex-wrap items-center gap-3">
-                      <form
-                        action={updateCategoryAction}
-                        className="flex flex-wrap items-center gap-3"
-                      >
-                        <input type="hidden" name="id" value={category.id} />
-                        <input type="hidden" name="kind" value={kind} />
-                        <input
-                          aria-label={`${category.name} name`}
-                          name="name"
-                          type="text"
-                          required
-                          maxLength={80}
-                          defaultValue={category.name}
-                          className="w-56 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
-                        />
-                        {kind === "expense" ? (
-                          <label className="flex items-center gap-2 text-sm text-stone-800">
-                            <input
-                              type="checkbox"
-                              name="isEssential"
-                              value="1"
-                              defaultChecked={category.isEssential}
-                            />
-                            Essential
-                          </label>
-                        ) : null}
-                        <button
-                          type="submit"
-                          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-                        >
-                          Save
-                        </button>
-                      </form>
+                      <CategoryUpdateForm category={category} kind={kind} />
                       <ConfirmDelete
                         action={deleteCategoryAction}
                         id={category.id}
@@ -98,37 +171,7 @@ export function CategoryPanel({ kind, categories }: CategoryPanelProps) {
         </div>
       )}
 
-      <form action={createCategoryAction} className="mt-4 flex flex-wrap items-end gap-3">
-        <input type="hidden" name="kind" value={kind} />
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor={`new-${kind}-category`}
-            className="text-sm font-medium text-stone-800"
-          >
-            New category
-          </label>
-          <input
-            id={`new-${kind}-category`}
-            name="name"
-            type="text"
-            required
-            maxLength={80}
-            className="w-56 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
-          />
-        </div>
-        {kind === "expense" ? (
-          <label className="flex items-center gap-2 pb-2 text-sm text-stone-800">
-            <input type="checkbox" name="isEssential" value="1" />
-            Essential
-          </label>
-        ) : null}
-        <button
-          type="submit"
-          className="rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-        >
-          Add category
-        </button>
-      </form>
+      <CategoryCreateForm kind={kind} />
     </section>
   );
 }

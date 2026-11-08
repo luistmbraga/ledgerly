@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import { PERSONALITY_QUESTIONS } from "@/domain/personality";
 
 const DISCLAIMER =
@@ -63,13 +64,20 @@ export function PersonalityQuiz({ action, error }: PersonalityQuizProps) {
         </fieldset>
       ))}
 
-      <button
-        type="submit"
-        disabled={!allAnswered}
-        className="w-fit rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-stone-300"
-      >
-        See my result
-      </button>
+      <QuizSubmitButton allAnswered={allAnswered} />
     </form>
+  );
+}
+
+function QuizSubmitButton({ allAnswered }: { allAnswered: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={!allAnswered || pending}
+      className="w-fit rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:opacity-60"
+    >
+      {pending ? "Saving…" : "See my result"}
+    </button>
   );
 }

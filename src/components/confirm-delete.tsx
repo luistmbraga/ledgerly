@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useFormStatus } from "react-dom";
 
 type ConfirmDeleteProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -12,6 +13,19 @@ type ConfirmDeleteProps = {
   triggerLabel: string;
   size?: "default" | "sm";
 };
+
+function DeleteSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="rounded-md bg-red-800 px-4 py-2 text-sm font-medium text-white hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2 disabled:opacity-60"
+    >
+      {pending ? "Deleting…" : "Delete"}
+    </button>
+  );
+}
 
 export function ConfirmDelete({
   action,
@@ -66,12 +80,7 @@ export function ConfirmDelete({
                     <input key={name} type="hidden" name={name} value={value} />
                   ))
                 : null}
-              <button
-                type="submit"
-                className="rounded-md bg-red-800 px-4 py-2 text-sm font-medium text-white hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2"
-              >
-                Delete
-              </button>
+              <DeleteSubmitButton />
             </form>
           </div>
         </div>

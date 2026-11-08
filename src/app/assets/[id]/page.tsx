@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MoneyInput } from "@/components/money-input";
-import { SnapshotDateField } from "@/components/snapshot-date-field";
 import { selectLatestSnapshot } from "@/domain/net-worth";
 import { getAsset } from "@/db/repositories/assets";
 import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
@@ -18,6 +16,7 @@ import {
 import { AssetForm } from "../asset-form";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { Flash } from "@/components/flash";
+import { SnapshotForm } from "@/components/snapshot-form";
 import {
   ASSET_TYPE_DESCRIPTIONS,
   ASSET_TYPE_LABELS,
@@ -101,38 +100,21 @@ export default async function AssetDetailPage({
 
         <section className="border-t border-stone-200 pt-6">
           <h2 className="text-lg font-semibold">New snapshot</h2>
-          <form action={addAssetSnapshotAction} className="mt-4 flex flex-col gap-4">
-            <input type="hidden" name="assetId" value={asset.id} />
-            <SnapshotDateField
-              snapshots={snapshots.map((snapshot) => ({
-                id: snapshot.id,
-                recordedOn: snapshot.recordedOn,
-                amountCents: snapshot.amountCents,
+          <div className="mt-4">
+            <SnapshotForm
+              action={addAssetSnapshotAction}
+              snapshots={snapshots.map((s) => ({
+                id: s.id,
+                recordedOn: s.recordedOn,
+                amountCents: s.amountCents,
               }))}
               currency={currency}
               defaultDate={today}
+              amountLabel="Amount"
+              submitLabel="Add snapshot"
+              hiddenFields={{ assetId: asset.id }}
             />
-            <MoneyInput id="amount" name="amount" label="Amount" />
-            <div className="flex flex-col gap-1">
-              <label htmlFor="note" className="text-sm font-medium">
-                Note
-              </label>
-              <input
-                id="note"
-                name="note"
-                type="text"
-                maxLength={500}
-                autoComplete="off"
-                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-fit rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-            >
-              Add snapshot
-            </button>
-          </form>
+          </div>
         </section>
 
         <section className="border-t border-stone-200 pt-6">
@@ -199,12 +181,9 @@ export default async function AssetDetailPage({
               <h3 className="text-sm font-semibold">
                 Edit snapshot — {formatIsoDate(editingSnapshot.recordedOn)}
               </h3>
-              <form
-                action={updateAssetSnapshotAction}
-                className="mt-3 flex flex-col gap-3"
-              >
-                <input type="hidden" name="snapshotId" value={editingSnapshot.id} />
-                <SnapshotDateField
+              <div className="mt-3">
+                <SnapshotForm
+                  action={updateAssetSnapshotAction}
                   snapshots={snapshots
                     .filter((s) => s.id !== editingSnapshot.id)
                     .map((s) => ({
@@ -214,42 +193,16 @@ export default async function AssetDetailPage({
                     }))}
                   currency={currency}
                   defaultDate={editingSnapshot.recordedOn}
+                  amountLabel="Amount"
+                  submitLabel="Save snapshot"
+                  cancelHref={`/assets/${asset.id}`}
+                  hiddenFields={{ snapshotId: editingSnapshot.id }}
+                  defaults={{
+                    amount: centsToDecimalInput(editingSnapshot.amountCents),
+                    note: editingSnapshot.note ?? "",
+                  }}
                 />
-                <MoneyInput
-                  id="edit-snapshot-amount"
-                  name="amount"
-                  label="Amount"
-                  defaultValue={centsToDecimalInput(editingSnapshot.amountCents)}
-                />
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="edit-snapshot-note" className="text-sm font-medium">
-                    Note
-                  </label>
-                  <input
-                    id="edit-snapshot-note"
-                    name="note"
-                    type="text"
-                    maxLength={500}
-                    autoComplete="off"
-                    defaultValue={editingSnapshot.note ?? ""}
-                    className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    className="rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-                  >
-                    Save snapshot
-                  </button>
-                  <Link
-                    href={`/assets/${asset.id}`}
-                    className="rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-                  >
-                    Cancel
-                  </Link>
-                </div>
-              </form>
+              </div>
             </div>
           ) : null}
         </section>

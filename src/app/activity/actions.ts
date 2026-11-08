@@ -26,8 +26,9 @@ import {
   unlinkIncomeCash,
   updateIncome,
 } from "@/db/repositories/incomes";
-import { isValidIsoDate } from "@/db/repositories/snapshots";
+import { isValidIsoDate } from "@/lib/dates";
 import { parseMoneyToCents } from "@/lib/money";
+import type { ActionState } from "@/lib/action-state";
 
 type JournalTab = "expenses" | "income";
 
@@ -44,19 +45,6 @@ function activityPath(
   return `/activity?${params.toString()}`;
 }
 
-function fail(
-  tab: string,
-  message: string,
-  editId?: number,
-): never {
-  redirect(
-    activityPath(tab, {
-      error: message,
-      edit: editId === undefined ? undefined : String(editId),
-    }),
-  );
-}
-
 function readTab(formData: FormData): JournalTab {
   return formData.get("tab") === "income" ? "income" : "expenses";
 }
@@ -68,38 +56,82 @@ function readId(formData: FormData): number | null {
   return Number.isSafeInteger(id) ? id : null;
 }
 
-function readNote(formData: FormData, tab: string, editId?: number): string | null {
-  const note = String(formData.get("note") ?? "").trim();
-  if (note.length > 500) {
-    fail(tab, "Note must be 500 characters or fewer.", editId);
+function readKind(formData: FormData): CategoryKind | null {
+  const kind = String(formData.get("kind") ?? "");
+  return isCategoryKind(kind) ? kind : null;
+}
+
+function categoryTab(kind: CategoryKind): JournalTab {
+  return kind === "income" ? "income" : "expenses";
+}
+
+function extractJournalValues(formData: FormData): Record<string, string> {
+  return {
+    amount: String(formData.get("amount") ?? ""),
+    occurredOn: String(formData.get("occurredOn") ?? ""),
+    categoryId: String(formData.get("categoryId") ?? ""),
+    assetId: String(formData.get("assetId") ?? ""),
+    note: String(formData.get("note") ?? ""),
+  };
+}
+
+function validateJournalFields(formData: FormData): {
+  errors: Record<string, string>;
+  input?: {
+    amountCents: number;
+    occurredOn: string;
+    categoryId: number | null;
+    assetId: number | null;
+    note: string | null;
+  };
+} {
+  const errors: Record<string, string> = {};
+
+  const amountRaw = String(formData.get("amount") ?? "");
+  const parsed = parseMoneyToCents(amountRaw);
+  if (!parsed.ok) errors.amount = parsed.error;
+  else if (parsed.cents <= 0) errors.amount = "Enter an amount greater than zero.";
+
+  const occurredOn = String(formData.get("occurredOn") ?? "");
+  if (!isValidIsoDate(occurredOn)) errors.occurredOn = "Enter a valid date.";
+
+  const categoryRaw = String(formData.get("categoryId") ?? "").trim();
+  let categoryId: number | null = null;
+  if (categoryRaw !== "") {
+    if (!/^\d+$/.test(categoryRaw)) errors.categoryId = "Choose a category.";
+    else {
+      const cid = Number(categoryRaw);
+      if (!Number.isSafeInteger(cid)) errors.categoryId = "Choose a category.";
+      else categoryId = cid;
+    }
   }
-  return note.length === 0 ? null : note;
-}
 
-function readCategoryId(
-  formData: FormData,
-  tab: string,
-  editId?: number,
-): number | null {
-  const raw = String(formData.get("categoryId") ?? "").trim();
-  if (raw === "") return null;
-  if (!/^\d+$/.test(raw)) fail(tab, "Choose a category.", editId);
-  const id = Number(raw);
-  if (!Number.isSafeInteger(id)) fail(tab, "Choose a category.", editId);
-  return id;
-}
+  const assetRaw = String(formData.get("assetId") ?? "").trim();
+  let assetId: number | null = null;
+  if (assetRaw !== "") {
+    if (!/^\d+$/.test(assetRaw)) errors.assetId = "Choose a cash account.";
+    else {
+      const aid = Number(assetRaw);
+      if (!Number.isSafeInteger(aid)) errors.assetId = "Choose a cash account.";
+      else assetId = aid;
+    }
+  }
 
-function readAssetId(
-  formData: FormData,
-  tab: string,
-  editId?: number,
-): number | null {
-  const raw = String(formData.get("assetId") ?? "").trim();
-  if (raw === "") return null;
-  if (!/^\d+$/.test(raw)) fail(tab, "Choose a cash account.", editId);
-  const id = Number(raw);
-  if (!Number.isSafeInteger(id)) fail(tab, "Choose a cash account.", editId);
-  return id;
+  const note = String(formData.get("note") ?? "").trim();
+  if (note.length > 500) errors.note = "Note must be 500 characters or fewer.";
+
+  if (Object.keys(errors).length > 0) return { errors };
+
+  return {
+    errors: {},
+    input: {
+      amountCents: (parsed as { ok: true; cents: number }).cents,
+      occurredOn,
+      categoryId,
+      assetId,
+      note: note.length === 0 ? null : note,
+    },
+  };
 }
 
 function revalidateJournalPaths(assetId: number | null) {
@@ -110,33 +142,6 @@ function revalidateJournalPaths(assetId: number | null) {
   if (assetId !== null) {
     revalidatePath(`/assets/${assetId}`);
   }
-}
-
-function readJournalInput(formData: FormData, tab: JournalTab, editId?: number) {
-  const parsed = parseMoneyToCents(String(formData.get("amount") ?? ""));
-  if (!parsed.ok) fail(tab, parsed.error, editId);
-  if (parsed.cents <= 0) {
-    fail(tab, "Enter an amount greater than zero.", editId);
-  }
-  const occurredOn = String(formData.get("occurredOn") ?? "");
-  if (!isValidIsoDate(occurredOn)) fail(tab, "Enter a valid date.", editId);
-  return {
-    amountCents: parsed.cents,
-    occurredOn,
-    categoryId: readCategoryId(formData, tab, editId),
-    assetId: readAssetId(formData, tab, editId),
-    note: readNote(formData, tab, editId),
-  };
-}
-
-function readKind(formData: FormData): CategoryKind {
-  const kind = String(formData.get("kind") ?? "");
-  if (!isCategoryKind(kind)) fail("expenses", "Choose a valid category kind.");
-  return kind;
-}
-
-function categoryTab(kind: CategoryKind): JournalTab {
-  return kind === "income" ? "income" : "expenses";
 }
 
 export async function suggestExpenseCategory(input: {
@@ -197,32 +202,47 @@ export async function suggestExpenseCategory(input: {
   };
 }
 
-export async function createExpenseAction(formData: FormData) {
-  const input = readJournalInput(formData, "expenses");
+export async function createExpenseAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const values = extractJournalValues(formData);
+  const { errors, input } = validateJournalFields(formData);
+  if (!input) return { errors, values };
+
   try {
     createExpense(input);
   } catch (error) {
-    fail(
-      "expenses",
-      error instanceof Error ? error.message : "Could not save the expense.",
-    );
+    return {
+      errors: { _form: error instanceof Error ? error.message : "Could not save the expense." },
+      values,
+    };
   }
   revalidateJournalPaths(input.assetId);
   redirect(activityPath("expenses", { saved: "expense-created" }));
 }
 
-export async function updateExpenseAction(formData: FormData) {
+export async function updateExpenseAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const values = extractJournalValues(formData);
   const id = readId(formData);
-  if (id === null) fail("expenses", "Expense not found.");
-  const input = readJournalInput(formData, "expenses", id);
+  if (id === null) {
+    redirect(activityPath("expenses", { error: "Expense not found." }));
+  }
+  const { errors, input } = validateJournalFields(formData);
+  if (!input) return { errors, values };
+
   try {
-    if (!updateExpense(id, input)) fail("expenses", "Expense not found.", id);
+    if (!updateExpense(id, input)) {
+      redirect(activityPath("expenses", { error: "Expense not found." }));
+    }
   } catch (error) {
-    fail(
-      "expenses",
-      error instanceof Error ? error.message : "Could not save the expense.",
-      id,
-    );
+    return {
+      errors: { _form: error instanceof Error ? error.message : "Could not save the expense." },
+      values,
+    };
   }
   revalidateJournalPaths(input.assetId);
   redirect(activityPath("expenses", { saved: "expense-updated" }));
@@ -230,39 +250,56 @@ export async function updateExpenseAction(formData: FormData) {
 
 export async function deleteExpenseAction(formData: FormData) {
   const id = readId(formData);
-  if (id === null) fail("expenses", "Expense not found.");
-  const existing = getExpense(id);
-  if (!existing || !deleteExpense(id)) fail("expenses", "Expense not found.");
+  if (id === null) redirect(activityPath("expenses", { error: "Expense not found." }));
+  const existing = getExpense(id!);
+  if (!existing || !deleteExpense(id!)) {
+    redirect(activityPath("expenses", { error: "Expense not found." }));
+  }
   revalidateJournalPaths(existing.assetId);
   redirect(activityPath("expenses", { saved: "expense-deleted" }));
 }
 
-export async function createIncomeAction(formData: FormData) {
-  const input = readJournalInput(formData, "income");
+export async function createIncomeAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const values = extractJournalValues(formData);
+  const { errors, input } = validateJournalFields(formData);
+  if (!input) return { errors, values };
+
   try {
     createIncome(input);
   } catch (error) {
-    fail(
-      "income",
-      error instanceof Error ? error.message : "Could not save the income.",
-    );
+    return {
+      errors: { _form: error instanceof Error ? error.message : "Could not save the income." },
+      values,
+    };
   }
   revalidateJournalPaths(input.assetId);
   redirect(activityPath("income", { saved: "income-created" }));
 }
 
-export async function updateIncomeAction(formData: FormData) {
+export async function updateIncomeAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const values = extractJournalValues(formData);
   const id = readId(formData);
-  if (id === null) fail("income", "Income not found.");
-  const input = readJournalInput(formData, "income", id);
+  if (id === null) {
+    redirect(activityPath("income", { error: "Income not found." }));
+  }
+  const { errors, input } = validateJournalFields(formData);
+  if (!input) return { errors, values };
+
   try {
-    if (!updateIncome(id, input)) fail("income", "Income not found.", id);
+    if (!updateIncome(id, input)) {
+      redirect(activityPath("income", { error: "Income not found." }));
+    }
   } catch (error) {
-    fail(
-      "income",
-      error instanceof Error ? error.message : "Could not save the income.",
-      id,
-    );
+    return {
+      errors: { _form: error instanceof Error ? error.message : "Could not save the income." },
+      values,
+    };
   }
   revalidateJournalPaths(input.assetId);
   redirect(activityPath("income", { saved: "income-updated" }));
@@ -270,37 +307,54 @@ export async function updateIncomeAction(formData: FormData) {
 
 export async function deleteIncomeAction(formData: FormData) {
   const id = readId(formData);
-  if (id === null) fail("income", "Income not found.");
-  const existing = getIncome(id);
-  if (!existing || !deleteIncome(id)) fail("income", "Income not found.");
+  if (id === null) redirect(activityPath("income", { error: "Income not found." }));
+  const existing = getIncome(id!);
+  if (!existing || !deleteIncome(id!)) {
+    redirect(activityPath("income", { error: "Income not found." }));
+  }
   revalidateJournalPaths(existing.assetId);
   redirect(activityPath("income", { saved: "income-deleted" }));
 }
 
 export async function unlinkExpenseCashAction(formData: FormData) {
   const id = readId(formData);
-  if (id === null) fail("expenses", "Expense not found.");
-  const existing = getExpense(id);
-  if (!existing) fail("expenses", "Expense not found.");
-  if (!unlinkExpenseCash(id)) fail("expenses", "This expense has no cash link to remove.");
-  revalidateJournalPaths(existing.assetId);
+  if (id === null) redirect(activityPath("expenses", { error: "Expense not found." }));
+  const existing = getExpense(id!);
+  if (!existing) redirect(activityPath("expenses", { error: "Expense not found." }));
+  if (!unlinkExpenseCash(id!)) {
+    redirect(activityPath("expenses", { error: "This expense has no cash link to remove." }));
+  }
+  revalidateJournalPaths(existing!.assetId);
   redirect(activityPath("expenses", { saved: "expense-unlinked" }));
 }
 
 export async function unlinkIncomeCashAction(formData: FormData) {
   const id = readId(formData);
-  if (id === null) fail("income", "Income not found.");
-  const existing = getIncome(id);
-  if (!existing) fail("income", "Income not found.");
-  if (!unlinkIncomeCash(id)) fail("income", "This income has no cash link to remove.");
-  revalidateJournalPaths(existing.assetId);
+  if (id === null) redirect(activityPath("income", { error: "Income not found." }));
+  const existing = getIncome(id!);
+  if (!existing) redirect(activityPath("income", { error: "Income not found." }));
+  if (!unlinkIncomeCash(id!)) {
+    redirect(activityPath("income", { error: "This income has no cash link to remove." }));
+  }
+  revalidateJournalPaths(existing!.assetId);
   redirect(activityPath("income", { saved: "income-unlinked" }));
 }
 
-export async function createCategoryAction(formData: FormData) {
+export async function createCategoryAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const kind = readKind(formData);
+  if (!kind) {
+    return { errors: { kind: "Choose a valid category kind." }, values: {} };
+  }
   const tab = categoryTab(kind);
-  const name = String(formData.get("name") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const values = { name, kind };
+
+  if (name.length === 0) return { errors: { name: "Enter a name." }, values };
+  if (name.length > 80) return { errors: { name: "Name must be 80 characters or fewer." }, values };
+
   try {
     createCategory({
       name,
@@ -308,26 +362,46 @@ export async function createCategoryAction(formData: FormData) {
       isEssential: formData.get("isEssential") === "1",
     });
   } catch (error) {
-    fail(tab, error instanceof Error ? error.message : "Could not save the category.");
+    return {
+      errors: { _form: error instanceof Error ? error.message : "Could not save the category." },
+      values,
+    };
   }
   revalidatePath("/activity");
   redirect(activityPath(tab, { saved: "category-created" }));
 }
 
-export async function updateCategoryAction(formData: FormData) {
+export async function updateCategoryAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const id = readId(formData);
   const kind = readKind(formData);
+  if (!kind) {
+    return { errors: { kind: "Choose a valid category kind." }, values: {} };
+  }
   const tab = categoryTab(kind);
-  if (id === null) fail(tab, "Category not found.");
+  const name = String(formData.get("name") ?? "").trim();
+  const values = { name, kind };
+
+  if (id === null) {
+    redirect(activityPath(tab, { error: "Category not found." }));
+  }
+  if (name.length === 0) return { errors: { name: "Enter a name." }, values };
+  if (name.length > 80) return { errors: { name: "Name must be 80 characters or fewer." }, values };
+
   try {
     const updated = updateCategory(id, {
-      name: String(formData.get("name") ?? ""),
+      name,
       kind,
       isEssential: formData.get("isEssential") === "1",
     });
-    if (!updated) fail(tab, "Category not found.");
+    if (!updated) redirect(activityPath(tab, { error: "Category not found." }));
   } catch (error) {
-    fail(tab, error instanceof Error ? error.message : "Could not save the category.");
+    return {
+      errors: { _form: error instanceof Error ? error.message : "Could not save the category." },
+      values,
+    };
   }
   revalidatePath("/activity");
   redirect(activityPath(tab, { saved: "category-updated" }));
@@ -336,11 +410,17 @@ export async function updateCategoryAction(formData: FormData) {
 export async function deleteCategoryAction(formData: FormData) {
   const tab = readTab(formData);
   const id = readId(formData);
-  if (id === null) fail(tab, "Category not found.");
-  const result = deleteCategory(id);
-  if (!result.ok && result.reason === "not_found") fail(tab, "Category not found.");
+  if (id === null) redirect(activityPath(tab, { error: "Category not found." }));
+  const result = deleteCategory(id!);
+  if (!result.ok && result.reason === "not_found") {
+    redirect(activityPath(tab, { error: "Category not found." }));
+  }
   if (!result.ok && result.reason === "in_use") {
-    fail(tab, "Cannot delete a category that has expenses or income attached.");
+    redirect(
+      activityPath(tab, {
+        error: "Cannot delete a category that has expenses or income attached.",
+      }),
+    );
   }
   revalidatePath("/activity");
   redirect(activityPath(tab, { saved: "category-deleted" }));

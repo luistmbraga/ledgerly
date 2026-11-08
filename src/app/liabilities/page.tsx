@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { LIABILITY_TYPES } from "@/domain/net-worth";
 import { listLiabilities } from "@/db/repositories/liabilities";
 import { getLatestSnapshotsByLiabilityIds } from "@/db/repositories/snapshots";
 import { formatMoney } from "@/lib/money";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
 import { Flash } from "@/components/flash";
 import { createLiabilityAction } from "./actions";
+import { LiabilityForm } from "./liability-form";
 import { LIABILITY_TYPE_LABELS } from "./labels";
 import { formatIsoDate } from "../assets/labels";
 
@@ -97,57 +97,9 @@ export default async function LiabilitiesPage({
           <h2 className="text-lg font-semibold">
             {rows.length === 0 ? "Add your first liability" : "Add liability"}
           </h2>
-          <form action={createLiabilityAction} className="mt-4 flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="liability-name" className="text-sm font-medium">
-                Name
-              </label>
-              <input
-                id="liability-name"
-                name="name"
-                type="text"
-                required
-                maxLength={200}
-                autoComplete="off"
-                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="liability-type" className="text-sm font-medium">
-                Type
-              </label>
-              <select
-                id="liability-type"
-                name="type"
-                defaultValue="loan"
-                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
-              >
-                {LIABILITY_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {LIABILITY_TYPE_LABELS[type]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="liability-notes" className="text-sm font-medium">
-                Notes
-              </label>
-              <textarea
-                id="liability-notes"
-                name="notes"
-                rows={2}
-                maxLength={2000}
-                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-fit rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
-            >
-              Add liability
-            </button>
-          </form>
+          <div className="mt-4">
+            <LiabilityForm action={createLiabilityAction} submitLabel="Add liability" />
+          </div>
         </section>
       </div>
     </div>
