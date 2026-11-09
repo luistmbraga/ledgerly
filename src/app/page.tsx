@@ -4,7 +4,8 @@ import { ASSET_TYPES } from "@/domain/net-worth";
 import { formatMoney } from "@/lib/money";
 import { formatRatio } from "@/lib/percent";
 import { todayUtc } from "@/lib/dates";
-import { getDashboardSummary } from "@/services/dashboard-summary";
+import { getDashboardSummary, getCashflowKpis } from "@/services/dashboard-summary";
+import type { CashflowKpis } from "@/services/dashboard-summary";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
 import { narrateDashboardTips } from "@/ai/tasks/tips";
 import type { DashboardTip } from "@/services/tips-service";
@@ -19,6 +20,7 @@ export const runtime = "nodejs";
 export default async function DashboardPage() {
   const asOfDate = todayUtc();
   const summary = getDashboardSummary();
+  const kpis = getCashflowKpis(asOfDate);
   const fund = getEmergencyFund(asOfDate);
   const goals = loadGoals(asOfDate);
   const { netWorth, currency } = summary;
@@ -75,6 +77,52 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {hasAssets && (
+        <div className="mt-6 flex flex-col gap-8">
+          <section className="flex flex-col gap-4">
+            <h2 className="text-lg font-semibold">Assets and liabilities</h2>
+            <Bar
+              label="Assets"
+              cents={netWorth.totalAssetsCents}
+              scale={Math.max(
+                netWorth.totalAssetsCents,
+                netWorth.totalLiabilitiesCents,
+              )}
+              currency={currency}
+              tone="teal"
+            />
+            <Bar
+              label="Liabilities"
+              cents={netWorth.totalLiabilitiesCents}
+              scale={Math.max(
+                netWorth.totalAssetsCents,
+                netWorth.totalLiabilitiesCents,
+              )}
+              currency={currency}
+              tone="stone"
+            />
+          </section>
+
+          <section className="flex flex-col gap-4">
+            <h2 className="text-lg font-semibold">By asset type</h2>
+            {ASSET_TYPES.filter((type) =>
+              summary.assetTypesPresent.includes(type),
+            ).map((type) => (
+              <Bar
+                key={type}
+                label={ASSET_TYPE_LABELS[type]}
+                cents={netWorth.byAssetType[type]}
+                scale={netWorth.totalAssetsCents}
+                currency={currency}
+                tone="teal"
+              />
+            ))}
+          </section>
+        </div>
+      )}
+
+      <CashflowKpisSection kpis={kpis} currency={currency} />
+
       <section className="mt-6 flex items-center gap-4 rounded-md border border-stone-200 px-4 py-3">
         <ProgressRing ratio={fundedRatio} funded={funded} />
         <div>
@@ -127,49 +175,7 @@ export default async function DashboardPage() {
         <TipsPanelLoader asOfDate={asOfDate} />
       </Suspense>
 
-      {hasAssets && (
-        <div className="mt-6 flex flex-col gap-8">
-          <section className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold">Assets and liabilities</h2>
-            <Bar
-              label="Assets"
-              cents={netWorth.totalAssetsCents}
-              scale={Math.max(
-                netWorth.totalAssetsCents,
-                netWorth.totalLiabilitiesCents,
-              )}
-              currency={currency}
-              tone="teal"
-            />
-            <Bar
-              label="Liabilities"
-              cents={netWorth.totalLiabilitiesCents}
-              scale={Math.max(
-                netWorth.totalAssetsCents,
-                netWorth.totalLiabilitiesCents,
-              )}
-              currency={currency}
-              tone="stone"
-            />
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold">By asset type</h2>
-            {ASSET_TYPES.filter((type) =>
-              summary.assetTypesPresent.includes(type),
-            ).map((type) => (
-              <Bar
-                key={type}
-                label={ASSET_TYPE_LABELS[type]}
-                cents={netWorth.byAssetType[type]}
-                scale={netWorth.totalAssetsCents}
-                currency={currency}
-                tone="teal"
-              />
-            ))}
-          </section>
-        </div>
-      )}
+      <QuickActions />
     </div>
   );
 }
@@ -296,6 +302,136 @@ function GoalsSummary({
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+function CashflowKpisSection({
+  kpis,
+  currency,
+}: {
+  kpis: CashflowKpis;
+  currency: string;
+}) {
+  if (kpis.source === "none") {
+    return (
+      <section className="mt-6 rounded-md border border-stone-200 px-4 py-3">
+        <h2 className="text-sm font-medium text-stone-800">Monthly cashflow</h2>
+        <p className="mt-2 text-sm text-stone-700">
+          No cashflow data yet. Add incomes or expenses, or enter two months of
+          balance snapshots.
+        </p>
+      </section>
+    );
+  }
+
+  const confidenceLabel =
+    kpis.source === "derived"
+      ? kpis.confidence === "high"
+        ? "Derived · high confidence"
+        : kpis.confidence === "estimated"
+          ? "Derived · estimated"
+          : "Derived · insufficient data"
+      : "Journal";
+
+  return (
+    <section className="mt-6 rounded-md border border-stone-200 px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-medium text-stone-800">
+          Monthly cashflow{" "}
+          <span className="text-xs font-normal text-stone-500">
+            (trailing 3-month avg)
+          </span>
+        </h2>
+        <span className="inline-flex rounded-full border border-stone-300 bg-white px-2 py-0.5 text-xs font-medium text-stone-700">
+          {confidenceLabel}
+        </span>
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+        {kpis.avgMonthlyIncomeCents !== null ? (
+          <KpiTile
+            label="Income"
+            value={formatMoney(kpis.avgMonthlyIncomeCents, currency)}
+          />
+        ) : null}
+        {kpis.avgMonthlyExpenseCents !== null ? (
+          <KpiTile
+            label="Expenses"
+            value={formatMoney(kpis.avgMonthlyExpenseCents, currency)}
+          />
+        ) : null}
+        <KpiTile
+          label="Surplus"
+          value={formatMoney(kpis.avgMonthlySurplusCents, currency)}
+          negative={kpis.avgMonthlySurplusCents < 0}
+        />
+        {kpis.avgSavingsRate !== null ? (
+          <KpiTile
+            label="Savings rate"
+            value={formatRatio(kpis.avgSavingsRate) ?? "—"}
+            negative={kpis.avgSavingsRate < 0}
+          />
+        ) : null}
+      </dl>
+      {kpis.source === "derived" && (
+        <p className="mt-3 text-xs text-stone-500">
+          Derived from balance snapshot changes.
+          {kpis.confidence === "estimated"
+            ? " Investment returns estimated at 5% annually."
+            : ""}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function KpiTile({
+  label,
+  value,
+  negative,
+}: {
+  label: string;
+  value: string;
+  negative?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="text-xs text-stone-500">{label}</dt>
+      <dd
+        className={`mt-0.5 text-lg font-semibold tabular-nums ${
+          negative ? "text-red-700" : "text-stone-900"
+        }`}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function QuickActions() {
+  return (
+    <section className="mt-6 rounded-md border border-stone-200 px-4 py-3">
+      <h2 className="text-sm font-medium text-stone-800">Quick actions</h2>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link
+          href="/update"
+          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+        >
+          Update balances
+        </Link>
+        <Link
+          href="/activity?tab=expenses"
+          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+        >
+          Add expense
+        </Link>
+        <Link
+          href="/goals#add"
+          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+        >
+          Add goal
+        </Link>
+      </div>
     </section>
   );
 }
