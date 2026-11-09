@@ -2,6 +2,7 @@ import {
   computeEmergencyFund,
   computeEssentialMonthlyAverage,
 } from "@/domain/emergency-fund";
+import { resolveAvgMonthlySurplus } from "@/services/emergency-fund-service";
 import { buildFinancialSnapshot } from "@/domain/financial-snapshot";
 import type { FinancialSnapshot } from "@/domain/financial-snapshot";
 import { computeNetWorth } from "@/domain/net-worth";
@@ -21,6 +22,7 @@ import { getSettings } from "@/db/repositories/settings";
 import {
   getLatestSnapshotsByAssetIds,
   getLatestSnapshotsByLiabilityIds,
+  listAllSnapshotsByAssetIds,
 } from "@/db/repositories/snapshots";
 import { todayUtc } from "@/lib/dates";
 
@@ -40,6 +42,7 @@ export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
 
   const latestByAsset = getLatestSnapshotsByAssetIds(assets.map((a) => a.id));
   const latestByLiability = getLatestSnapshotsByLiabilityIds(liabilities.map((l) => l.id));
+  const allSnapshotsByAsset = listAllSnapshotsByAssetIds(assets.map((a) => a.id));
 
   const netWorth = computeNetWorth(
     assets.map((a) => ({
@@ -68,6 +71,30 @@ export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
     asOf,
   );
 
+  const incomeLines = incomeRows.map((i) => ({
+    amountCents: i.amountCents,
+    occurredOn: i.occurredOn,
+  }));
+  const expenseLines = expenseRows.map((e) => ({
+    amountCents: e.amountCents,
+    occurredOn: e.occurredOn,
+  }));
+
+  const surplusResolution = resolveAvgMonthlySurplus(
+    assets.map((asset) => ({
+      id: asset.id,
+      isCash: asset.sleevePercents.cash === 100,
+      snapshots: (allSnapshotsByAsset.get(asset.id) ?? []).map((s) => ({
+        id: s.id,
+        recordedOn: s.recordedOn,
+        amountCents: s.amountCents,
+      })),
+    })),
+    incomeLines,
+    expenseLines,
+    asOf,
+  );
+
   const fund = computeEmergencyFund({
     essentialMonthlyAverageCents: essential.essentialMonthlyAverageCents,
     targetMonths,
@@ -81,15 +108,10 @@ export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
           : [],
       };
     }),
-    incomes: incomeRows.map((i) => ({
-      amountCents: i.amountCents,
-      occurredOn: i.occurredOn,
-    })),
-    expenses: expenseRows.map((e) => ({
-      amountCents: e.amountCents,
-      occurredOn: e.occurredOn,
-    })),
+    incomes: incomeLines,
+    expenses: expenseLines,
     asOfDate: asOf,
+    avgMonthlySurplusOverride: surplusResolution,
   });
 
   const investorProfile =

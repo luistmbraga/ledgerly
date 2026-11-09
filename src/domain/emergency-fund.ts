@@ -39,6 +39,9 @@ export type ContributingAsset = {
   amountCents: number;
 };
 
+export type SurplusSource = "journal" | "derived" | "none";
+export type SurplusConfidence = "high" | "estimated" | "insufficient_data";
+
 export type EmergencyFundResult = {
   targetMonths: number;
   essentialMonthlyAverageCents: number;
@@ -49,6 +52,9 @@ export type EmergencyFundResult = {
   avgMonthlySurplusCents: number;
   monthsToCloseGap: number | null;
   contributingAssets: ContributingAsset[];
+  surplusSource: SurplusSource;
+  /** null when surplusSource is "journal" or "none" */
+  surplusConfidence: SurplusConfidence | null;
 };
 
 /** Integer division, half away from zero. */
@@ -147,6 +153,12 @@ export function computeEmergencyFund(input: {
   incomes: readonly CashflowLine[];
   expenses: readonly CashflowLine[];
   asOfDate: string;
+  /** When provided, overrides the journal-derived surplus computation. */
+  avgMonthlySurplusOverride?: {
+    amountCents: number;
+    source: SurplusSource;
+    confidence: SurplusConfidence | null;
+  };
 }): EmergencyFundResult {
   const targetCents =
     input.essentialMonthlyAverageCents * input.targetMonths;
@@ -165,15 +177,28 @@ export function computeEmergencyFund(input: {
     targetCents > 0 ? eligibleCents / targetCents : null;
   const gapCents = Math.max(0, targetCents - eligibleCents);
 
-  const surplusSum = trailingFullMonthRanges(input.asOfDate).reduce(
-    (sum, range) =>
-      sum + sumCashflow(
-        { incomes: input.incomes, expenses: input.expenses },
-        range,
-      ).surplusCents,
-    0,
-  );
-  const avgMonthlySurplusCents = roundHalfAwayFromZero(surplusSum, 3);
+  let avgMonthlySurplusCents: number;
+  let surplusSource: SurplusSource;
+  let surplusConfidence: SurplusConfidence | null;
+
+  if (input.avgMonthlySurplusOverride !== undefined) {
+    avgMonthlySurplusCents = input.avgMonthlySurplusOverride.amountCents;
+    surplusSource = input.avgMonthlySurplusOverride.source;
+    surplusConfidence = input.avgMonthlySurplusOverride.confidence;
+  } else {
+    const surplusSum = trailingFullMonthRanges(input.asOfDate).reduce(
+      (sum, range) =>
+        sum + sumCashflow(
+          { incomes: input.incomes, expenses: input.expenses },
+          range,
+        ).surplusCents,
+      0,
+    );
+    avgMonthlySurplusCents = roundHalfAwayFromZero(surplusSum, 3);
+    surplusSource = avgMonthlySurplusCents !== 0 ? "journal" : "none";
+    surplusConfidence = null;
+  }
+
   const monthsToCloseGap =
     avgMonthlySurplusCents > 0 ? gapCents / avgMonthlySurplusCents : null;
 
@@ -187,5 +212,7 @@ export function computeEmergencyFund(input: {
     avgMonthlySurplusCents,
     monthsToCloseGap,
     contributingAssets,
+    surplusSource,
+    surplusConfidence,
   };
 }

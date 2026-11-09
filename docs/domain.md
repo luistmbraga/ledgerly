@@ -115,6 +115,39 @@ savingsRate = surplusCents / incomeCents   if incomeCents > 0, else null
 
 ---
 
+## Derived cashflow (snapshot-based surplus, NF-1)
+
+When the journal has no entries for a trailing month, surplus is estimated from balance snapshot deltas.
+
+**Cash asset** (`sleevePercents.cash === 100`):
+```
+opening = latest snapshot with recordedOn < month.start  (assumed 0 if none — new asset)
+closing = latest snapshot with recordedOn <= month.end   (asset skipped if none)
+cashflowCents = closing.amountCents − opening.amountCents
+confidence = "high" if both opening and closing present, else "estimated"
+```
+
+**Investment asset** (`sleevePercents.cash < 100`):
+```
+monthlyRate = expectedAnnualReturnBps / 10_000 / 12   (default 500 bps = 5%)
+estimatedReturnCents = round(opening.amountCents × monthlyRate)
+cashflowCents = (closing − opening) − estimatedReturnCents
+confidence = "estimated"
+```
+
+**Precedence rule (per trailing month):**
+```
+if any income or expense journal entry exists in month → use journal for that month
+else                                                   → use derived
+avgMonthlySurplusCents = round( sum of per-month surpluses / 3 )
+```
+
+`surplusSource` on `EmergencyFundResult` is `"journal"` when all months used the journal,
+`"derived"` when any month used derived figures, or `"none"` when all derived months returned insufficient data.
+Every derived figure in the UI must display a source/confidence note.
+
+---
+
 ## Essential monthly spend (emergency fund input)
 
 Default: average of **essential expense** over the last **3 full calendar months** ending before the current month.

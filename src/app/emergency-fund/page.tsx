@@ -121,6 +121,17 @@ export default function EmergencyFundPage() {
                 : ` About ${formatMonths(fund.monthsToCloseGap)} to close the gap at the recent average surplus of ${formatMoney(fund.avgMonthlySurplusCents, fund.currency)} per month.`}
             </p>
           ) : null}
+          {fund.surplusSource === "derived" && (
+            <p className="text-xs text-stone-500">
+              Surplus estimated from balance snapshot changes
+              {fund.surplusConfidence === "high"
+                ? " (cash only — high confidence)."
+                : fund.surplusConfidence === "estimated"
+                  ? " (includes investment accounts — approximate)."
+                  : "."}
+              {" "}Does not show category breakdown.
+            </p>
+          )}
         </section>
 
         <section className="flex flex-col gap-3">
