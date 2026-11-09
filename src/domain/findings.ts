@@ -1,5 +1,7 @@
 import type { GoalStatus } from "./goals";
 import { ratio } from "./cashflow";
+import { ALLOCATION_SLEEVES, type AllocationPercents } from "./allocation";
+import { isoDateToDayNumber } from "../lib/dates";
 import { formatMoney } from "../lib/money";
 import { formatRatio } from "../lib/percent";
 
@@ -33,11 +35,24 @@ export type FindingsInput = {
   gapCents: number;
   fundedRatio: number | null;
   goals: ReadonlyArray<{ name: string; status: GoalStatus }>;
+  /** Balance-sheet fields for journal-free detectors (all optional). */
+  totalAssetsCents?: number;
+  totalLiabilitiesCents?: number;
+  cashAssetsCents?: number;
+  currentMix?: AllocationPercents | null;
+  /** Target band from investor profile. Null = no profile set. */
+  targetBand?: AllocationPercents | null;
+  assetSnapshots?: ReadonlyArray<{ name: string; latestRecordedOn: string | null }>;
+  asOf?: string;
 };
 
 const LOW_SAVINGS_RATE = 0.1;
 const HIGH_DISCRETIONARY_SHARE = 0.4;
 const UNCATEGORIZED_SHARE = 0.15;
+const ALLOCATION_DRIFT_PP = 10;
+const CASH_CONCENTRATION_RATIO = 0.6;
+const LIABILITY_RATIO_THRESHOLD = 0.5;
+const STALE_SNAPSHOT_DAYS = 90;
 
 function goalsWithStatus(input: FindingsInput, status: GoalStatus): string[] {
   return input.goals
@@ -173,6 +188,92 @@ export function buildFindings(snapshotInputs: FindingsInput): Finding[] {
     });
   }
 
+  // Balance-sheet detectors — fire without any journal entries.
+
+  const { currentMix, targetBand } = snapshotInputs;
+
+  if (currentMix != null && targetBand != null) {
+    let maxDrift = 0;
+    let worstSleeve: string = "cash";
+    for (const sleeve of ALLOCATION_SLEEVES) {
+      const drift = Math.abs(currentMix[sleeve] - targetBand[sleeve]);
+      if (drift > maxDrift) {
+        maxDrift = drift;
+        worstSleeve = sleeve;
+      }
+    }
+    if (maxDrift > ALLOCATION_DRIFT_PP) {
+      findings.push({
+        id: "allocation_drift",
+        severity: "warn",
+        data: {
+          sleeve: worstSleeve,
+          driftPp: maxDrift,
+          currentPct: currentMix[worstSleeve as keyof AllocationPercents],
+          targetPct: targetBand[worstSleeve as keyof AllocationPercents],
+        },
+      });
+    }
+  }
+
+  const { totalAssetsCents, totalLiabilitiesCents, cashAssetsCents } = snapshotInputs;
+
+  if (targetBand == null && cashAssetsCents !== undefined && totalAssetsCents) {
+    const cashRatio = ratio(cashAssetsCents, totalAssetsCents);
+    if (cashRatio !== null && cashRatio > CASH_CONCENTRATION_RATIO) {
+      findings.push({
+        id: "cash_concentration",
+        severity: "warn",
+        data: {
+          cashRatio,
+          cashAssetsCents,
+          currency: snapshotInputs.currency,
+        },
+      });
+    }
+  }
+
+  if (totalAssetsCents && totalLiabilitiesCents !== undefined) {
+    const lRatio = ratio(totalLiabilitiesCents, totalAssetsCents);
+    if (lRatio !== null && lRatio > LIABILITY_RATIO_THRESHOLD) {
+      findings.push({
+        id: "liability_ratio",
+        severity: "warn",
+        data: {
+          liabilityRatio: lRatio,
+          totalLiabilitiesCents,
+          totalAssetsCents,
+          currency: snapshotInputs.currency,
+        },
+      });
+    }
+  }
+
+  if (snapshotInputs.assetSnapshots && snapshotInputs.asOf) {
+    const asOfDay = isoDateToDayNumber(snapshotInputs.asOf);
+    const staleNames: string[] = [];
+    for (const asset of snapshotInputs.assetSnapshots) {
+      if (!asset.latestRecordedOn) {
+        staleNames.push(asset.name);
+      } else {
+        const day = isoDateToDayNumber(asset.latestRecordedOn);
+        if (asOfDay !== null && day !== null && asOfDay - day > STALE_SNAPSHOT_DAYS) {
+          staleNames.push(asset.name);
+        }
+      }
+    }
+    if (staleNames.length > 0) {
+      findings.push({
+        id: "stale_snapshots",
+        severity: "warn",
+        data: {
+          count: staleNames.length,
+          names: staleNames.join(", "),
+        },
+      });
+    }
+  }
+
   return findings;
 }
 
@@ -240,6 +341,29 @@ const TEMPLATES: Record<string, { title: string; body: (data: FindingData) => st
     title: "Negative surplus",
     body: (data) =>
       `Spending exceeded income by ${moneyText(data, "deficitCents")} over the last 3 months.`,
+  },
+  allocation_drift: {
+    title: "Allocation drift",
+    body: (data) =>
+      `Your ${data.sleeve} sleeve is at ${data.currentPct}% vs a target of ${data.targetPct}% (${data.driftPp} pp off).`,
+  },
+  cash_concentration: {
+    title: "High cash concentration",
+    body: (data) =>
+      `${percentText(data.cashRatio)} of your assets are held in cash. Consider whether this matches your goals.`,
+  },
+  liability_ratio: {
+    title: "High liability ratio",
+    body: (data) =>
+      `Liabilities are ${percentText(data.liabilityRatio)} of total assets (${moneyText(data, "totalLiabilitiesCents")} of ${moneyText(data, "totalAssetsCents")}).`,
+  },
+  stale_snapshots: {
+    title: "Stale balance data",
+    body: (data) => {
+      const count = typeof data.count === "number" ? data.count : 0;
+      const noun = count === 1 ? "has" : "have";
+      return `${count} asset${count === 1 ? "" : "s"} ${noun} not been updated in over ${STALE_SNAPSHOT_DAYS} days: ${data.names}.`;
+    },
   },
 };
 

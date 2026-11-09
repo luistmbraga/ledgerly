@@ -40,6 +40,10 @@ export const FINDING_GLOSS: Record<string, string> = {
   goal_shortfall: "one or more goals are behind the calculated monthly amount",
   goal_tight: "one or more goals are close to the calculated monthly amount",
   negative_surplus: "expenses exceeded income over the trailing window",
+  allocation_drift: "one or more allocation sleeves have drifted beyond the target band",
+  cash_concentration: "an unusually high share of assets is held in cash",
+  liability_ratio: "liabilities are more than half of total assets",
+  stale_snapshots: "one or more assets have not been updated recently",
 };
 
 export const STATUS_GLOSS: Record<string, string> = {

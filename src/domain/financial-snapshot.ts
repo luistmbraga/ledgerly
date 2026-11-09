@@ -18,7 +18,7 @@ import {
 import type { AssetType, NetWorthResult } from "./net-worth";
 
 /** Bump when formulas change so later AI cache keys can invalidate. */
-export const DOMAIN_VERSION = "2026-11-07";
+export const DOMAIN_VERSION = "2026-11-09";
 
 export type SnapshotCategory = {
   id: number;
@@ -118,6 +118,8 @@ export type FinancialSnapshotInput = {
   investorProfile: FinancialSnapshot["investorProfile"];
   /** Latest snapshot per asset. Omitted assets contribute nothing to the mix. */
   allocationAssets?: readonly AllocationAsset[];
+  /** Asset names with their latest snapshot date, for staleness detection. */
+  assetSnapshotDates?: ReadonlyArray<{ name: string; latestRecordedOn: string | null }>;
 };
 
 /** Inclusive span of the last three full calendar months before `asOf`. */
@@ -224,6 +226,17 @@ export function buildFinancialSnapshot(
     };
   });
 
+  const shortGoalRemainingCents = sumShortGoalRemainingCents(goals);
+  const investable = computeInvestableMix(input.allocationAssets ?? [], {
+    emergencyEligibleCents: input.emergencyFund.eligibleCents,
+    emergencyTargetCents: input.emergencyFund.targetCents,
+    shortGoalRemainingCents,
+  });
+  const targetBandOrNull =
+    input.investorProfile === null
+      ? null
+      : (bandForLabel(input.investorProfile.label) ?? null);
+
   const findings = buildFindings({
     currency: input.currency,
     incomeCents: cashflow.incomeCents,
@@ -237,6 +250,13 @@ export function buildFinancialSnapshot(
     gapCents: input.emergencyFund.gapCents,
     fundedRatio: input.emergencyFund.fundedRatio,
     goals,
+    totalAssetsCents: input.netWorth.totalAssetsCents,
+    totalLiabilitiesCents: input.netWorth.totalLiabilitiesCents,
+    cashAssetsCents: input.netWorth.byAssetType.cash,
+    currentMix: investable.mix,
+    targetBand: targetBandOrNull,
+    assetSnapshots: input.assetSnapshotDates,
+    asOf: input.asOf,
   });
 
   return {
@@ -265,25 +285,13 @@ export function buildFinancialSnapshot(
     },
     goals,
     investorProfile: input.investorProfile,
-    allocation: (() => {
-      const shortGoalRemainingCents = sumShortGoalRemainingCents(goals);
-      const investable = computeInvestableMix(input.allocationAssets ?? [], {
-        emergencyEligibleCents: input.emergencyFund.eligibleCents,
-        emergencyTargetCents: input.emergencyFund.targetCents,
-        shortGoalRemainingCents,
-      });
-      return {
-        targetBand: {
-          ...(input.investorProfile === null
-            ? ZERO_MIX
-            : (bandForLabel(input.investorProfile.label) ?? ZERO_MIX)),
-        },
-        currentMix: investable.mix,
-        shortGoalRemainingCents,
-        emergencyReservedCents: investable.emergencyReservedCents,
-        shortGoalReservedCents: investable.shortGoalReservedCents,
-      };
-    })(),
+    allocation: {
+      targetBand: { ...(targetBandOrNull ?? ZERO_MIX) },
+      currentMix: investable.mix,
+      shortGoalRemainingCents,
+      emergencyReservedCents: investable.emergencyReservedCents,
+      shortGoalReservedCents: investable.shortGoalReservedCents,
+    },
     findings,
     categories: [...input.categories],
   };

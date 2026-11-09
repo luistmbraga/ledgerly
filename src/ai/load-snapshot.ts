@@ -172,5 +172,9 @@ export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
       isLiquid: asset.isLiquid,
       sleevePercents: asset.sleevePercents,
     })),
+    assetSnapshotDates: assets.map((asset) => ({
+      name: asset.name,
+      latestRecordedOn: latestByAsset.get(asset.id)?.recordedOn ?? null,
+    })),
   });
 }

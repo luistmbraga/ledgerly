@@ -1,4 +1,4 @@
-export const TIPS_VERSION = "tips_v2";
+export const TIPS_VERSION = "tips_v3";
 
 export const TIPS_INSTRUCTIONS = `Task tips.
 Write at most one tip per finding id in snapshot.findings. Skip ids that are not in the input.

@@ -188,6 +188,137 @@ describe("buildFindings", () => {
     ]);
     expect(findings[1]?.data.deficitCents).toBe(50_00);
   });
+
+  it("fires allocation_drift when any sleeve exceeds 10pp off target", () => {
+    // cash: 50 vs 15 = 35pp drift (worst); equities: 25 vs 45 = 20pp
+    const currentMix = { cash: 50, bonds: 20, equities: 25, other: 5 };
+    const targetBand = { cash: 15, bonds: 35, equities: 45, other: 5 };
+    const finding = buildFindings(inputs({ currentMix, targetBand })).find(
+      (f) => f.id === "allocation_drift",
+    );
+    expect(finding).toBeDefined();
+    expect(finding?.data.sleeve).toBe("cash");
+    expect(finding?.data.driftPp).toBe(35);
+    expect(finding?.data.currentPct).toBe(50);
+    expect(finding?.data.targetPct).toBe(15);
+  });
+
+  it("does not fire allocation_drift when all sleeves are within 10pp", () => {
+    const currentMix = { cash: 15, bonds: 35, equities: 45, other: 5 };
+    const targetBand = { cash: 15, bonds: 35, equities: 45, other: 5 };
+    expect(ids({ currentMix, targetBand })).not.toContain("allocation_drift");
+  });
+
+  it("does not fire allocation_drift at exactly 10pp", () => {
+    const currentMix = { cash: 25, bonds: 35, equities: 35, other: 5 };
+    const targetBand = { cash: 15, bonds: 35, equities: 45, other: 5 };
+    expect(ids({ currentMix, targetBand })).not.toContain("allocation_drift");
+  });
+
+  it("does not fire allocation_drift when no profile (targetBand is null)", () => {
+    const currentMix = { cash: 90, bonds: 5, equities: 5, other: 0 };
+    expect(ids({ currentMix, targetBand: null })).not.toContain("allocation_drift");
+  });
+
+  it("fires cash_concentration when cash exceeds 60% and no profile", () => {
+    const finding = buildFindings(
+      inputs({
+        totalAssetsCents: 100_000,
+        cashAssetsCents: 65_000,
+        targetBand: null,
+      }),
+    ).find((f) => f.id === "cash_concentration");
+    expect(finding).toBeDefined();
+    expect(finding?.data.cashRatio).toBeCloseTo(0.65);
+  });
+
+  it("does not fire cash_concentration at exactly 60%", () => {
+    expect(
+      ids({ totalAssetsCents: 100_000, cashAssetsCents: 60_000, targetBand: null }),
+    ).not.toContain("cash_concentration");
+  });
+
+  it("does not fire cash_concentration when a profile is set", () => {
+    const targetBand = { cash: 5, bonds: 15, equities: 75, other: 5 };
+    expect(
+      ids({ totalAssetsCents: 100_000, cashAssetsCents: 65_000, targetBand }),
+    ).not.toContain("cash_concentration");
+  });
+
+  it("fires liability_ratio when liabilities exceed 50% of assets", () => {
+    const finding = buildFindings(
+      inputs({ totalAssetsCents: 100_000, totalLiabilitiesCents: 60_000 }),
+    ).find((f) => f.id === "liability_ratio");
+    expect(finding).toBeDefined();
+    expect(finding?.data.liabilityRatio).toBeCloseTo(0.6);
+  });
+
+  it("does not fire liability_ratio at exactly 50%", () => {
+    expect(
+      ids({ totalAssetsCents: 100_000, totalLiabilitiesCents: 50_000 }),
+    ).not.toContain("liability_ratio");
+  });
+
+  it("does not fire liability_ratio when assets are zero", () => {
+    expect(
+      ids({ totalAssetsCents: 0, totalLiabilitiesCents: 50_000 }),
+    ).not.toContain("liability_ratio");
+  });
+
+  it("fires stale_snapshots when an asset has no snapshot at all", () => {
+    const finding = buildFindings(
+      inputs({
+        asOf: "2026-11-09",
+        assetSnapshots: [{ name: "Savings", latestRecordedOn: null }],
+      }),
+    ).find((f) => f.id === "stale_snapshots");
+    expect(finding).toBeDefined();
+    expect(finding?.data.count).toBe(1);
+    expect(finding?.data.names).toBe("Savings");
+  });
+
+  it("fires stale_snapshots when last update is over 90 days ago", () => {
+    const finding = buildFindings(
+      inputs({
+        asOf: "2026-11-09",
+        assetSnapshots: [
+          { name: "Old account", latestRecordedOn: "2026-07-01" },
+          { name: "Fresh account", latestRecordedOn: "2026-10-01" },
+        ],
+      }),
+    ).find((f) => f.id === "stale_snapshots");
+    expect(finding).toBeDefined();
+    expect(finding?.data.count).toBe(1);
+    expect(finding?.data.names).toBe("Old account");
+  });
+
+  it("does not fire stale_snapshots when all assets updated within 90 days", () => {
+    expect(
+      ids({
+        asOf: "2026-11-09",
+        assetSnapshots: [
+          { name: "Account A", latestRecordedOn: "2026-09-01" },
+          { name: "Account B", latestRecordedOn: "2026-10-15" },
+        ],
+      }),
+    ).not.toContain("stale_snapshots");
+  });
+
+  it("fires stale_snapshots at exactly 91 days but not 90", () => {
+    expect(
+      ids({
+        asOf: "2026-11-09",
+        assetSnapshots: [{ name: "Edge", latestRecordedOn: "2026-08-10" }],
+      }),
+    ).toContain("stale_snapshots");
+
+    expect(
+      ids({
+        asOf: "2026-11-09",
+        assetSnapshots: [{ name: "Edge", latestRecordedOn: "2026-08-11" }],
+      }),
+    ).not.toContain("stale_snapshots");
+  });
 });
 
 describe("renderTipTemplates", () => {
@@ -272,7 +403,7 @@ describe("buildFinancialSnapshot", () => {
       }),
     );
 
-    expect(snapshot.version).toBe("2026-11-07");
+    expect(snapshot.version).toBe("2026-11-09");
     expect(snapshot.netWorth.netWorthCents).toBe(210_000);
     expect(snapshot.cashflow).toMatchObject({
       trailingMonths: 3,
@@ -301,6 +432,7 @@ describe("buildFinancialSnapshot", () => {
       "low_savings_rate",
       "emergency_fund_gap",
       "goal_shortfall",
+      "cash_concentration",
     ]);
 
     const tips = renderTipTemplates(snapshot.findings);
@@ -308,6 +440,7 @@ describe("buildFinancialSnapshot", () => {
       "low_savings_rate",
       "emergency_fund_gap",
       "goal_shortfall",
+      "cash_concentration",
     ]);
     expect(tips[0]?.body).toContain("5%");
   });
@@ -341,8 +474,10 @@ describe("buildFinancialSnapshot", () => {
 
     expect(snapshot.goals[0]?.requiredMonthlyCents).toBe(1_000);
     expect(snapshot.goals[0]?.status).toBe("tight");
+    // cash_concentration also fires: snapshotInput has 250k all-cash with no investor profile
     expect(snapshot.findings.map((finding) => finding.id)).toEqual([
       "goal_tight",
+      "cash_concentration",
     ]);
   });
 });
