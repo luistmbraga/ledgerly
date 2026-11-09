@@ -25,6 +25,7 @@ Desktop-first responsive layout. Primary navigation: persistent sidebar (collaps
 | Route | Screen |
 |-------|--------|
 | `/` | Dashboard |
+| `/update` | Monthly update balances |
 | `/assets` | Assets list + detail |
 | `/liabilities` | Liabilities list + detail |
 | `/activity` | Tabs: Expenses, Income |

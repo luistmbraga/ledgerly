@@ -6,10 +6,10 @@ import { usePathname } from "next/navigation";
 
 const NAV_PRIMARY = [
   { href: "/", label: "Dashboard" },
+  { href: "/update", label: "Update" },
   { href: "/assets", label: "Assets" },
-  { href: "/activity", label: "Activity" },
   { href: "/goals", label: "Goals" },
-  { href: "/settings", label: "Settings" },
+  { href: "/activity", label: "Activity" },
 ] as const;
 
 const NAV_SECONDARY = [
@@ -17,6 +17,7 @@ const NAV_SECONDARY = [
   { href: "/emergency-fund", label: "Emergency fund" },
   { href: "/personality", label: "Personality" },
   { href: "/briefing", label: "Briefing" },
+  { href: "/settings", label: "Settings" },
 ] as const;
 
 const NAV = [...NAV_PRIMARY, ...NAV_SECONDARY] as const;

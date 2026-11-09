@@ -198,6 +198,30 @@ export type DeleteSnapshotResult =
   | { ok: true }
   | { ok: false; reason: "not_found" | "linked" };
 
+export type BatchSnapshotEntry =
+  | { kind: "asset"; assetId: number; recordedOn: string; amountCents: number }
+  | { kind: "liability"; liabilityId: number; recordedOn: string; amountCents: number };
+
+export function batchAddSnapshots(entries: BatchSnapshotEntry[]): void {
+  if (entries.length === 0) return;
+  const now = new Date().toISOString();
+  db.transaction((tx) => {
+    for (const entry of entries) {
+      tx
+        .insert(valueSnapshots)
+        .values({
+          assetId: entry.kind === "asset" ? entry.assetId : null,
+          liabilityId: entry.kind === "liability" ? entry.liabilityId : null,
+          recordedOn: entry.recordedOn,
+          amountCents: entry.amountCents,
+          note: null,
+          createdAt: now,
+        })
+        .run();
+    }
+  });
+}
+
 export function deleteSnapshot(id: number): DeleteSnapshotResult {
   const existing = getSnapshot(id);
   if (!existing) return { ok: false, reason: "not_found" };
