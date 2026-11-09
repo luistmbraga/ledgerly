@@ -3,6 +3,7 @@ import { formatMoney } from "@/lib/money";
 import { formatRatio } from "@/lib/percent";
 import { todayUtc } from "@/lib/dates";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
+import { EssentialOverrideForm } from "./essential-override-form";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,59 +28,74 @@ export default function EmergencyFundPage() {
       </header>
 
       <div className="mt-6 flex flex-col gap-8">
-        <section className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">Target</h2>
-          <p className="text-sm text-stone-800">
-            <Link
-              href="/settings"
-              className="font-medium text-teal-800 underline decoration-teal-800/30 underline-offset-2 hover:text-teal-900"
-            >
-              {fund.targetMonths} {fund.targetMonths === 1 ? "month" : "months"}
-            </Link>
-            {" × "}
-            {formatMoney(fund.essentialMonthlyAverageCents, fund.currency)}
-            {" = "}
-            <span className="font-semibold">
-              {formatMoney(fund.targetCents, fund.currency)}
-            </span>
-          </p>
-          <p className="text-sm text-stone-700">
-            Essential spend:{" "}
-            {fund.essentialSpendSource === "override"
-              ? "Override from settings."
-              : "Computed from essential expenses over the last 3 full months."}
-          </p>
-          {missingEssentialTarget ? (
+        {missingEssentialTarget ? (
+          <section className="flex flex-col gap-3 rounded-lg border border-stone-200 bg-stone-50 p-4">
+            <h2 className="text-base font-semibold text-stone-900">
+              Set your essential monthly spend
+            </h2>
+            <p className="text-sm text-stone-600">
+              How much do you need each month if your income stopped? This sets
+              your emergency fund target. You can refine it later with tracked
+              expenses.
+            </p>
+            <EssentialOverrideForm
+              currentOverrideCents={null}
+              currency={fund.currency}
+            />
+          </section>
+        ) : (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-lg font-semibold">Target</h2>
             <p className="text-sm text-stone-800">
-              There is no essential-spend target yet. Log essential expenses
-              for the last three full months on{" "}
-              <Link
-                href="/activity"
-                className="font-medium text-teal-800 underline decoration-teal-800/30 underline-offset-2 hover:text-teal-900"
-              >
-                Activity
-              </Link>{" "}
-              or set an essential monthly spend override in{" "}
               <Link
                 href="/settings"
                 className="font-medium text-teal-800 underline decoration-teal-800/30 underline-offset-2 hover:text-teal-900"
               >
-                Settings
+                {fund.targetMonths} {fund.targetMonths === 1 ? "month" : "months"}
               </Link>
-              .
+              {" × "}
+              {formatMoney(fund.essentialMonthlyAverageCents, fund.currency)}
+              {" = "}
+              <span className="font-semibold">
+                {formatMoney(fund.targetCents, fund.currency)}
+              </span>
             </p>
-          ) : null}
-          {fund.essentialSpendSource === "override" ? (
             <p className="text-sm text-stone-600">
-              Computed average is{" "}
-              {formatMoney(
-                fund.computedEssentialMonthlyAverageCents,
-                fund.currency,
-              )}
-              .
+              Essential spend:{" "}
+              {fund.essentialSpendSource === "override"
+                ? "Manually set."
+                : "Computed from essential expenses over the last 3 full months."}
             </p>
-          ) : null}
-        </section>
+            {fund.essentialSpendSource === "override" &&
+              fund.computedEssentialMonthlyAverageCents > 0 ? (
+              <p className="text-sm text-stone-600">
+                Computed 3-month average is{" "}
+                {formatMoney(
+                  fund.computedEssentialMonthlyAverageCents,
+                  fund.currency,
+                )}
+                .
+              </p>
+            ) : null}
+            <details className="mt-1">
+              <summary className="cursor-pointer text-sm text-teal-800 hover:text-teal-900">
+                {fund.essentialSpendSource === "override"
+                  ? "Change or clear monthly spend"
+                  : "Override monthly spend"}
+              </summary>
+              <div className="mt-3">
+                <EssentialOverrideForm
+                  currentOverrideCents={
+                    fund.essentialSpendSource === "override"
+                      ? fund.essentialMonthlyAverageCents
+                      : null
+                  }
+                  currency={fund.currency}
+                />
+              </div>
+            </details>
+          </section>
+        )}
 
         <section className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold">Funding</h2>
