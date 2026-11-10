@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { suggestCategory } from "@/ai/tasks/category-suggest";
+import { parseEntry } from "@/ai/tasks/entry-parse";
 import {
   createCategory,
   deleteCategory,
@@ -26,9 +27,24 @@ import {
   unlinkIncomeCash,
   updateIncome,
 } from "@/db/repositories/incomes";
-import { isValidIsoDate } from "@/lib/dates";
-import { parseMoneyToCents } from "@/lib/money";
+import { isValidIsoDate, todayUtc } from "@/lib/dates";
+import { parseMoneyToCents, centsToDecimalInput } from "@/lib/money";
 import type { ActionState } from "@/lib/action-state";
+
+export type QuickEntryDraft = {
+  kind: "expense" | "income";
+  amountRaw: string;
+  amountCents: number;
+  occurredOn: string;
+  categoryId: number | null;
+  categoryName: string | null;
+  note: string;
+  source: "ai" | "cache" | "fallback";
+};
+
+export type QuickEntryResult =
+  | { ok: true; draft: QuickEntryDraft }
+  | { ok: false; error: string };
 
 type JournalTab = "expenses" | "income";
 
@@ -338,6 +354,62 @@ export async function unlinkIncomeCashAction(formData: FormData) {
   }
   revalidateJournalPaths(existing!.assetId);
   redirect(activityPath("income", { saved: "income-unlinked" }));
+}
+
+export async function parseQuickEntryAction(input: {
+  text: string;
+}): Promise<QuickEntryResult> {
+  const text = input.text.trim().slice(0, 500);
+  if (text.length === 0) {
+    return { ok: false, error: "Enter a description to parse." };
+  }
+
+  const asOfDate = todayUtc();
+  const expenseCategories = listCategories("expense");
+  const incomeCategories = listCategories("income");
+  const allCategories = [
+    ...expenseCategories.map((c) => ({ id: c.id, name: c.name, kind: "expense" as const })),
+    ...incomeCategories.map((c) => ({ id: c.id, name: c.name, kind: "income" as const })),
+  ];
+
+  const result = await parseEntry({ text, asOfDate, categories: allCategories });
+
+  if (result.output.refused) {
+    return {
+      ok: false,
+      error: result.refusalReason ?? result.output.reason ?? "Could not parse that. Try the form below.",
+    };
+  }
+
+  const parsedAmount = parseMoneyToCents(result.output.amountRaw);
+  if (!parsedAmount.ok) {
+    return { ok: false, error: "Could not read the amount. Try the form below." };
+  }
+  if (parsedAmount.cents <= 0) {
+    return { ok: false, error: "Amount must be greater than zero. Try the form below." };
+  }
+
+  if (!isValidIsoDate(result.output.occurredOn)) {
+    return { ok: false, error: "Could not read the date. Try the form below." };
+  }
+
+  const categoryId = result.output.categoryId;
+  const categories = [...expenseCategories, ...incomeCategories];
+  const matchedCategory = categoryId === null ? null : categories.find((c) => c.id === categoryId);
+
+  return {
+    ok: true,
+    draft: {
+      kind: result.output.kind,
+      amountRaw: centsToDecimalInput(parsedAmount.cents),
+      amountCents: parsedAmount.cents,
+      occurredOn: result.output.occurredOn,
+      categoryId,
+      categoryName: matchedCategory?.name ?? null,
+      note: result.output.note,
+      source: result.source,
+    },
+  };
 }
 
 export async function createCategoryAction(

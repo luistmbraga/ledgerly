@@ -23,6 +23,7 @@ import { CategoryPanel } from "./category-panel";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { Flash } from "@/components/flash";
 import { JournalForm } from "./journal-form";
+import { QuickEntry } from "./quick-entry";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -75,6 +76,7 @@ export default async function ActivityPage({
   const editId = parseEditId(params.edit);
   const currency = getDisplayCurrency();
   const saved = params.saved ? SAVED[params.saved] : undefined;
+  const hasCategories = listCategories("expense").length > 0 || listCategories("income").length > 0;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
@@ -85,6 +87,10 @@ export default async function ActivityPage({
           balance with a snapshot.
         </p>
       </header>
+
+      <div className="mt-6">
+        <QuickEntry currency={currency} hasCategories={hasCategories} />
+      </div>
 
       <nav aria-label="Activity" className="mt-4 flex gap-2 border-b border-stone-200">
         {TABS.map((item) => {

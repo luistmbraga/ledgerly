@@ -5,6 +5,30 @@ const refusedFields = {
   reason: z.string().max(200).optional(),
 };
 
+export const entryParseSchema = z.object({
+  kind: z.enum(["expense", "income"]),
+  amountRaw: z.string().max(30),
+  occurredOn: z.string().max(10),
+  categoryId: z.number().int().nullable(),
+  note: z.string().max(100),
+  ...refusedFields,
+});
+
+export const entryParseJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["kind", "amountRaw", "occurredOn", "categoryId", "note", "refused", "reason"],
+  properties: {
+    kind: { type: "string", enum: ["expense", "income"] },
+    amountRaw: { type: "string", maxLength: 30 },
+    occurredOn: { type: "string", maxLength: 10 },
+    categoryId: { type: ["integer", "null"] },
+    note: { type: "string", maxLength: 100 },
+    refused: { type: "boolean" },
+    reason: { type: "string", maxLength: 200 },
+  },
+} as const;
+
 export const categorySuggestSchema = z.object({
   categoryId: z.number().int().nullable(),
   confidence: z.enum(["low", "medium", "high"]),
@@ -176,6 +200,24 @@ export function categorySuggestSchemaForIds(
   categoryIds: readonly number[],
 ): Record<string, unknown> {
   const base = structuredClone(categorySuggestJsonSchema) as JsonSchemaNode;
+  const props = base.properties as Record<string, JsonSchemaNode>;
+  props.categoryId =
+    categoryIds.length === 0
+      ? { type: "null" }
+      : {
+          anyOf: [
+            { type: "integer", enum: [...categoryIds] },
+            { type: "null" },
+          ],
+        };
+  return base;
+}
+
+/** Per-request schema; `runAiTask` applies `toStrictSchema`. */
+export function entryParseSchemaForCategoryIds(
+  categoryIds: readonly number[],
+): Record<string, unknown> {
+  const base = structuredClone(entryParseJsonSchema) as JsonSchemaNode;
   const props = base.properties as Record<string, JsonSchemaNode>;
   props.categoryId =
     categoryIds.length === 0
