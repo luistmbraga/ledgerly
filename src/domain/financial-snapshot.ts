@@ -2,6 +2,7 @@ import type { CashflowLine } from "./cashflow";
 import { ratio, sumCashflow } from "./cashflow";
 import { trailingFullMonthRanges } from "./emergency-fund";
 import { buildFindings, type Finding } from "./findings";
+import type { BudgetStatus } from "./budgets";
 import {
   computeGoalFeasibility,
   sumShortGoalRemainingCents,
@@ -120,6 +121,8 @@ export type FinancialSnapshotInput = {
   allocationAssets?: readonly AllocationAsset[];
   /** Asset names with their latest snapshot date, for staleness detection. */
   assetSnapshotDates?: ReadonlyArray<{ name: string; latestRecordedOn: string | null }>;
+  /** MTD budget statuses for expense categories that have a budget set. */
+  budgetStatuses?: ReadonlyArray<BudgetStatus>;
 };
 
 /** Inclusive span of the last three full calendar months before `asOf`. */
@@ -257,6 +260,7 @@ export function buildFinancialSnapshot(
     targetBand: targetBandOrNull,
     assetSnapshots: input.assetSnapshotDates,
     asOf: input.asOf,
+    budgetStatuses: input.budgetStatuses,
   });
 
   return {

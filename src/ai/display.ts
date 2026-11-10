@@ -44,6 +44,8 @@ export const FINDING_GLOSS: Record<string, string> = {
   cash_concentration: "an unusually high share of assets is held in cash",
   liability_ratio: "liabilities are more than half of total assets",
   stale_snapshots: "one or more assets have not been updated recently",
+  overspend_budget: "one or more expense categories have exceeded their monthly budget",
+  budget_warning: "one or more expense categories are approaching their monthly budget limit",
 };
 
 export const STATUS_GLOSS: Record<string, string> = {

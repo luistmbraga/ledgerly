@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, between, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { isValidIsoDate } from "./snapshots";
 import { getCategory } from "./categories";
 import {
@@ -155,6 +155,24 @@ export function deleteExpense(id: number): boolean {
     tx.delete(expenses).where(eq(expenses.id, id)).run();
   });
   return true;
+}
+
+export type MtdSpend = { categoryId: number; totalCents: number };
+
+/** Returns sum of expense amounts per category for the given month (YYYY-MM). */
+export function getMtdSpendByCategoryId(yearMonth: string): MtdSpend[] {
+  const start = `${yearMonth}-01`;
+  const end = `${yearMonth}-31`;
+  return db
+    .select({
+      categoryId: expenses.categoryId,
+      totalCents: sql<number>`sum(${expenses.amountCents})`,
+    })
+    .from(expenses)
+    .where(and(isNotNull(expenses.categoryId), between(expenses.occurredOn, start, end)))
+    .groupBy(expenses.categoryId)
+    .all()
+    .map((row) => ({ categoryId: row.categoryId!, totalCents: Number(row.totalCents) }));
 }
 
 /** Remove the cash link from a frozen journal row without touching snapshots. */

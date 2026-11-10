@@ -390,11 +390,25 @@ export async function updateCategoryAction(
   if (name.length === 0) return { errors: { name: "Enter a name." }, values };
   if (name.length > 80) return { errors: { name: "Name must be 80 characters or fewer." }, values };
 
+  let budgetMonthlyCents: number | null = null;
+  if (kind === "expense") {
+    const budgetRaw = String(formData.get("budgetMonthlyCents") ?? "").trim();
+    if (budgetRaw !== "") {
+      const parsed = parseMoneyToCents(budgetRaw);
+      if (!parsed.ok) return { errors: { budgetMonthlyCents: parsed.error }, values };
+      if (parsed.cents <= 0) {
+        return { errors: { budgetMonthlyCents: "Enter a positive amount or leave blank to remove the budget." }, values };
+      }
+      budgetMonthlyCents = parsed.cents;
+    }
+  }
+
   try {
     const updated = updateCategory(id, {
       name,
       kind,
       isEssential: formData.get("isEssential") === "1",
+      budgetMonthlyCents,
     });
     if (!updated) redirect(activityPath(tab, { error: "Category not found." }));
   } catch (error) {

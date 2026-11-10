@@ -11,9 +11,10 @@ import {
   PERSONALITY_TITLES,
   type PersonalityLabel,
 } from "@/domain/personality";
+import { computeBudgetStatus } from "@/domain/budgets";
 import { listAssets } from "@/db/repositories/assets";
 import { listCategories } from "@/db/repositories/categories";
-import { listExpenses } from "@/db/repositories/expenses";
+import { listExpenses, getMtdSpendByCategoryId } from "@/db/repositories/expenses";
 import { listGoals } from "@/db/repositories/goals";
 import { listIncomes } from "@/db/repositories/incomes";
 import { listLiabilities } from "@/db/repositories/liabilities";
@@ -126,10 +127,25 @@ export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
         }
       : null;
 
+  const yearMonth = asOf.substring(0, 7);
+  const mtdRows = getMtdSpendByCategoryId(yearMonth);
+  const mtdByCategory = new Map<number, number>(mtdRows.map((r) => [r.categoryId, r.totalCents]));
+  const budgetStatuses = categoryRows
+    .filter((c) => c.kind === "expense" && c.budgetMonthlyCents != null && c.budgetMonthlyCents > 0)
+    .map((c) =>
+      computeBudgetStatus(
+        c.id,
+        c.name,
+        c.budgetMonthlyCents!,
+        mtdByCategory.get(c.id) ?? 0,
+      ),
+    );
+
   return buildFinancialSnapshot({
     asOf,
     currency,
     netWorth,
+    budgetStatuses,
     emergencyFund: {
       targetMonths: fund.targetMonths,
       targetCents: fund.targetCents,

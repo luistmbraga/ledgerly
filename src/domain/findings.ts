@@ -1,4 +1,5 @@
 import type { GoalStatus } from "./goals";
+import type { BudgetStatus } from "./budgets";
 import { ratio } from "./cashflow";
 import { ALLOCATION_SLEEVES, type AllocationPercents } from "./allocation";
 import { isoDateToDayNumber } from "../lib/dates";
@@ -44,6 +45,7 @@ export type FindingsInput = {
   targetBand?: AllocationPercents | null;
   assetSnapshots?: ReadonlyArray<{ name: string; latestRecordedOn: string | null }>;
   asOf?: string;
+  budgetStatuses?: ReadonlyArray<BudgetStatus>;
 };
 
 const LOW_SAVINGS_RATE = 0.1;
@@ -274,6 +276,33 @@ export function buildFindings(snapshotInputs: FindingsInput): Finding[] {
     }
   }
 
+  if (snapshotInputs.budgetStatuses) {
+    const over = snapshotInputs.budgetStatuses.filter((s) => s.status === "over");
+    if (over.length > 0) {
+      findings.push({
+        id: "overspend_budget",
+        severity: "warn",
+        data: {
+          count: over.length,
+          names: over.map((s) => s.categoryName).join(", "),
+          currency: snapshotInputs.currency,
+        },
+      });
+    }
+    const warning = snapshotInputs.budgetStatuses.filter((s) => s.status === "warning");
+    if (warning.length > 0) {
+      findings.push({
+        id: "budget_warning",
+        severity: "info",
+        data: {
+          count: warning.length,
+          names: warning.map((s) => s.categoryName).join(", "),
+          currency: snapshotInputs.currency,
+        },
+      });
+    }
+  }
+
   return findings;
 }
 
@@ -363,6 +392,20 @@ const TEMPLATES: Record<string, { title: string; body: (data: FindingData) => st
       const count = typeof data.count === "number" ? data.count : 0;
       const noun = count === 1 ? "has" : "have";
       return `${count} asset${count === 1 ? "" : "s"} ${noun} not been updated in over ${STALE_SNAPSHOT_DAYS} days: ${data.names}.`;
+    },
+  },
+  overspend_budget: {
+    title: "Budget exceeded",
+    body: (data) => {
+      const count = typeof data.count === "number" ? data.count : 0;
+      return `${count} ${count === 1 ? "category has" : "categories have"} exceeded the monthly budget this month: ${data.names}.`;
+    },
+  },
+  budget_warning: {
+    title: "Approaching budget limit",
+    body: (data) => {
+      const count = typeof data.count === "number" ? data.count : 0;
+      return `${count} ${count === 1 ? "category is" : "categories are"} at 80% or more of the monthly budget: ${data.names}.`;
     },
   },
 };

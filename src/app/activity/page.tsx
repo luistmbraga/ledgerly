@@ -2,7 +2,7 @@ import Link from "next/link";
 import { todayUtc } from "@/lib/dates";
 import { listAssets } from "@/db/repositories/assets";
 import { listCategories } from "@/db/repositories/categories";
-import { listExpenses, type ExpenseWithCategory } from "@/db/repositories/expenses";
+import { listExpenses, getMtdSpendByCategoryId, type ExpenseWithCategory } from "@/db/repositories/expenses";
 import { listIncomes, type IncomeWithCategory } from "@/db/repositories/incomes";
 import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
 import { selectLatestSnapshot } from "@/domain/net-worth";
@@ -165,6 +165,11 @@ function ExpenseTab({
   const cashAccounts = cashAccountOptions();
   const editing = editId === undefined ? undefined : rows.find((row) => row.id === editId);
   const frozen = buildFrozenSet(rows);
+  const today = todayUtc();
+  const yearMonth = today.substring(0, 7);
+  const mtdRows = getMtdSpendByCategoryId(yearMonth);
+  const mtdSpend: Record<number, number> = {};
+  for (const r of mtdRows) mtdSpend[r.categoryId] = r.totalCents;
 
   return (
     <>
@@ -296,7 +301,7 @@ function ExpenseTab({
         </div>
       </section>
 
-      <CategoryPanel kind="expense" categories={categories} />
+      <CategoryPanel kind="expense" categories={categories} mtdSpend={mtdSpend} currency={currency} />
     </>
   );
 }

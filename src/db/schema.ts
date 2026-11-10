@@ -101,6 +101,7 @@ export const categories = sqliteTable(
     isEssential: integer("is_essential", { mode: "boolean" })
       .notNull()
       .default(false),
+    budgetMonthlyCents: integer("budget_monthly_cents"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: text("created_at").notNull(),
   },

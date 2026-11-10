@@ -92,6 +92,13 @@
       "when": 1794068177852,
       "tag": "0012_fk_integrity",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1794100000000,
+      "tag": "0013_category_budget",
+      "breakpoints": true
     }
   ]
 }

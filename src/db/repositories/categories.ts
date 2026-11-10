@@ -16,6 +16,7 @@ export type CategoryInput = {
   name: string;
   kind: CategoryKind;
   isEssential: boolean;
+  budgetMonthlyCents?: number | null;
 };
 
 export type DeleteCategoryResult =
@@ -111,12 +112,30 @@ export function updateCategory(
     invalid("Category kind cannot change.");
   }
   const value = normalize(input, id);
+  const budgetMonthlyCents =
+    input.kind === "expense" ? (input.budgetMonthlyCents ?? null) : null;
   const row = db
     .update(categories)
     .set({
       name: value.name,
       isEssential: value.isEssential,
+      budgetMonthlyCents,
     })
+    .where(eq(categories.id, id))
+    .returning()
+    .get();
+  return asCategory(row);
+}
+
+export function setBudget(
+  id: number,
+  budgetMonthlyCents: number | null,
+): CategoryRecord | undefined {
+  const current = getCategory(id);
+  if (!current || current.kind !== "expense") return undefined;
+  const row = db
+    .update(categories)
+    .set({ budgetMonthlyCents })
     .where(eq(categories.id, id))
     .returning()
     .get();
