@@ -15,6 +15,7 @@ const NAV_PRIMARY = [
 const NAV_SECONDARY = [
   { href: "/liabilities", label: "Liabilities" },
   { href: "/emergency-fund", label: "Emergency fund" },
+  { href: "/projection", label: "Projection" },
   { href: "/personality", label: "Personality" },
   { href: "/briefing", label: "Briefing" },
   { href: "/settings", label: "Settings" },
