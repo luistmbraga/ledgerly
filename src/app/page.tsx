@@ -4,8 +4,8 @@ import { ASSET_TYPES } from "@/domain/net-worth";
 import { formatMoney } from "@/lib/money";
 import { formatRatio } from "@/lib/percent";
 import { todayUtc } from "@/lib/dates";
-import { getDashboardSummary, getCashflowKpis, getNetWorthSeries } from "@/services/dashboard-summary";
-import type { CashflowKpis } from "@/services/dashboard-summary";
+import { getDashboardSummary, getCashflowKpis, getNetWorthSeries, getAttribution } from "@/services/dashboard-summary";
+import type { CashflowKpis, AttributionResult } from "@/services/dashboard-summary";
 import { TrendChart } from "@/components/trend-chart";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
 import { narrateDashboardTips } from "@/ai/tasks/tips";
@@ -25,6 +25,10 @@ export default async function DashboardPage() {
   const netWorthSeries = getNetWorthSeries(asOfDate);
   const fund = getEmergencyFund(asOfDate);
   const goals = loadGoals(asOfDate);
+  const attribution =
+    netWorthSeries.length >= 2
+      ? getAttribution(netWorthSeries[0].date, netWorthSeries[netWorthSeries.length - 1].date)
+      : null;
   const { netWorth, currency } = summary;
   const hasAssets = summary.assetCount > 0;
   const funded = fund.targetCents > 0 && fund.gapCents === 0;
@@ -122,6 +126,10 @@ export default async function DashboardPage() {
             ))}
           </section>
         </div>
+      )}
+
+      {attribution !== null && (
+        <AttributionSection attribution={attribution} currency={currency} />
       )}
 
       <CashflowKpisSection kpis={kpis} currency={currency} />
@@ -435,6 +443,88 @@ function QuickActions() {
           Add goal
         </Link>
       </div>
+    </section>
+  );
+}
+
+const MONTHS_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+function shortDate(isoDate: string): string {
+  const month = Number(isoDate.slice(5, 7));
+  const year = isoDate.slice(2, 4);
+  return `${MONTHS_SHORT[month - 1] ?? ""} '${year}`;
+}
+
+function AttributionSection({
+  attribution,
+  currency,
+}: {
+  attribution: AttributionResult;
+  currency: string;
+}) {
+  const active = attribution.items.filter(
+    (i) => i.netWorthContributionCents !== 0,
+  );
+  const delta = attribution.netWorthDeltaCents;
+  const isPositive = delta >= 0;
+
+  return (
+    <section className="mt-6 rounded-md border border-stone-200 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-medium text-stone-800">What changed</h2>
+        <span className="text-xs text-stone-500">
+          {shortDate(attribution.startDate)} → {shortDate(attribution.endDate)}
+        </span>
+      </div>
+      <p className="mt-1 text-sm text-stone-700">
+        Net worth{" "}
+        <span
+          className={`font-medium tabular-nums ${isPositive ? "text-teal-700" : "text-red-700"}`}
+        >
+          {isPositive ? "+" : ""}
+          {formatMoney(delta, currency)}
+        </span>
+      </p>
+      {active.length === 0 ? (
+        <p className="mt-2 text-sm text-stone-500">
+          No recorded balance changes in this period.
+        </p>
+      ) : (
+        <ul className="mt-3 flex flex-col divide-y divide-stone-100">
+          {active.map((item) => {
+            const pos = item.netWorthContributionCents >= 0;
+            return (
+              <li
+                key={`${item.kind}-${item.id}`}
+                className="flex items-center justify-between gap-3 py-1.5 text-sm"
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  <span className="truncate text-stone-800">{item.name}</span>
+                  {item.isNew && (
+                    <span className="shrink-0 inline-flex rounded-full bg-teal-100 px-1.5 py-0.5 text-xs font-medium text-teal-800">
+                      New
+                    </span>
+                  )}
+                  {item.kind === "liability" && (
+                    <span className="shrink-0 inline-flex rounded-full bg-stone-100 px-1.5 py-0.5 text-xs font-medium text-stone-600">
+                      Liability
+                    </span>
+                  )}
+                </span>
+                <span
+                  className={`shrink-0 tabular-nums font-medium ${pos ? "text-teal-700" : "text-red-700"}`}
+                >
+                  {pos ? "+" : ""}
+                  {formatMoney(item.netWorthContributionCents, currency)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }
