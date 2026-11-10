@@ -6,6 +6,7 @@ const STATUS_CLASS: Record<GoalStatus, string> = {
   on_track: "border-teal-200 bg-teal-50 text-teal-900",
   tight: "border-amber-200 bg-amber-50 text-amber-950",
   shortfall: "border-red-200 bg-red-50 text-red-800",
+  overdue: "border-stone-300 bg-stone-100 text-stone-600",
 };
 
 export function BucketBadge({ bucket }: { bucket: HorizonBucket }) {

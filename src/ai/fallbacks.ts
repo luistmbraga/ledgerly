@@ -56,7 +56,9 @@ export function goalExplainFallback(goal: {
       ? "The current pace covers the required monthly contribution."
       : goal.status === "tight"
         ? "The current pace is close to the required monthly contribution and still short of it."
-        : "The current pace is below the required monthly contribution.";
+        : goal.status === "overdue"
+          ? "The target date has passed. Update the target date or mark the goal as reached."
+          : "The current pace is below the required monthly contribution.";
   return {
     summary: summary.slice(0, 500),
     steps: [

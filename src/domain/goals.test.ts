@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  allocateCapacity,
   computeGoalFeasibility,
   fullMonthsUntil,
   horizonBucket,
+  sumShortGoalRemainingCents,
+  type GoalCapacityInput,
   type GoalFeasibilityInput,
 } from "./goals";
 
@@ -272,5 +275,107 @@ describe("computeGoalFeasibility", () => {
         0,
       ),
     ).toThrow("expectedAnnualReturnBps must be non-negative");
+  });
+
+  it("returns overdue when the target date is in the past", () => {
+    const result = computeGoalFeasibility(
+      goal({ targetDate: "2025-01-01" }),
+      AS_OF,
+      1_000,
+    );
+    expect(result.fullMonthsUntilTarget).toBeLessThan(0);
+    expect(result.status).toBe("overdue");
+  });
+});
+
+describe("sumShortGoalRemainingCents", () => {
+  it("excludes overdue goals from the short reserve", () => {
+    const goals = [
+      { bucket: "short" as const, remainingCents: 1_000, status: "on_track" as const },
+      { bucket: "short" as const, remainingCents: 2_000, status: "overdue" as const },
+      { bucket: "short" as const, remainingCents: 500, status: "shortfall" as const },
+    ];
+    expect(sumShortGoalRemainingCents(goals)).toBe(1_500);
+  });
+
+  it("includes all short non-overdue goals when status is omitted", () => {
+    const goals = [
+      { bucket: "short" as const, remainingCents: 1_000 },
+      { bucket: "mid" as const, remainingCents: 2_000 },
+    ];
+    expect(sumShortGoalRemainingCents(goals)).toBe(1_000);
+  });
+});
+
+describe("allocateCapacity", () => {
+  function capacityGoal(overrides: Partial<GoalCapacityInput> & { id: number }): GoalCapacityInput {
+    return {
+      fullMonthsUntilTarget: 12,
+      requiredMonthlyCents: 500,
+      remainingCents: 6_000,
+      plannedMonthlyCents: null,
+      ...overrides,
+    };
+  }
+
+  it("three surplus goals on a €600 surplus cannot all report on_track", () => {
+    const goals = [
+      capacityGoal({ id: 1, requiredMonthlyCents: 500, fullMonthsUntilTarget: 6 }),
+      capacityGoal({ id: 2, requiredMonthlyCents: 500, fullMonthsUntilTarget: 12 }),
+      capacityGoal({ id: 3, requiredMonthlyCents: 500, fullMonthsUntilTarget: 24 }),
+    ];
+    const result = allocateCapacity(goals, 600);
+    // Only goal 1 (soonest) gets 500; goal 2 gets 100; goal 3 gets 0
+    expect(result.items[0].status).toBe("on_track");
+    expect(result.items[1].status).not.toBe("on_track");
+    expect(result.items[2].status).not.toBe("on_track");
+    expect(result.portfolioVerdict).toBe("partially_funded");
+  });
+
+  it("all goals on track when surplus covers all requirements", () => {
+    const goals = [
+      capacityGoal({ id: 1, requiredMonthlyCents: 200 }),
+      capacityGoal({ id: 2, requiredMonthlyCents: 300 }),
+    ];
+    const result = allocateCapacity(goals, 1_000);
+    expect(result.items.every((i) => i.status === "on_track")).toBe(true);
+    expect(result.portfolioVerdict).toBe("fully_funded");
+  });
+
+  it("overdue goals get overdue status and are excluded from the pool", () => {
+    const goals = [
+      capacityGoal({ id: 1, fullMonthsUntilTarget: -3, requiredMonthlyCents: 500 }),
+      capacityGoal({ id: 2, fullMonthsUntilTarget: 6, requiredMonthlyCents: 400 }),
+    ];
+    const result = allocateCapacity(goals, 600);
+    expect(result.items[0].status).toBe("overdue");
+    // Overdue did not consume the pool so goal 2 gets full 400
+    expect(result.items[1].status).toBe("on_track");
+  });
+
+  it("planned goals compare against their own plan, not the pool", () => {
+    const goals = [
+      capacityGoal({ id: 1, plannedMonthlyCents: 600, requiredMonthlyCents: 500 }),
+      capacityGoal({ id: 2, plannedMonthlyCents: 100, requiredMonthlyCents: 500 }),
+    ];
+    const result = allocateCapacity(goals, 0);
+    expect(result.items[0].status).toBe("on_track"); // 600 >= 500
+    expect(result.items[1].status).toBe("shortfall"); // 100 < 400 (80% of 500)
+  });
+
+  it("fully_funded when there are no active goals", () => {
+    expect(allocateCapacity([], 1_000).portfolioVerdict).toBe("fully_funded");
+    const goals = [capacityGoal({ id: 1, fullMonthsUntilTarget: -1 })];
+    expect(allocateCapacity(goals, 1_000).portfolioVerdict).toBe("fully_funded");
+  });
+
+  it("allocations never exceed available surplus", () => {
+    const goals = [
+      capacityGoal({ id: 1, requiredMonthlyCents: 1_000, fullMonthsUntilTarget: 3 }),
+      capacityGoal({ id: 2, requiredMonthlyCents: 1_000, fullMonthsUntilTarget: 6 }),
+    ];
+    const result = allocateCapacity(goals, 500);
+    const totalAllocated = result.items.reduce((sum, i) => sum + i.allocatedMonthlyCents, 0);
+    expect(totalAllocated).toBeLessThanOrEqual(500);
   });
 });

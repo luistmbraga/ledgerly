@@ -52,6 +52,7 @@ export const STATUS_GLOSS: Record<string, string> = {
   on_track: "current pace covers the required monthly contribution",
   tight: "current pace is close to but below the required monthly contribution",
   shortfall: "current pace is behind the calculated monthly amount",
+  overdue: "target date has passed",
 };
 
 export const BUCKET_GLOSS: Record<string, string> = {

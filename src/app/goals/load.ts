@@ -1,4 +1,8 @@
-import { computeGoalFeasibility, type GoalFeasibility } from "@/domain/goals";
+import {
+  allocateCapacity,
+  computeGoalFeasibility,
+  type GoalFeasibility,
+} from "@/domain/goals";
 import { listGoals, type GoalRecord } from "@/db/repositories/goals";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
 
@@ -9,9 +13,10 @@ export type GoalView = {
 
 export function loadGoals(asOfDate?: string) {
   const fund = getEmergencyFund(asOfDate);
-  const goals: GoalView[] = listGoals().map((goal) => ({
-    goal,
-    feasibility: computeGoalFeasibility(
+  const rawGoals = listGoals();
+
+  const feasibilities = rawGoals.map((goal) =>
+    computeGoalFeasibility(
       {
         targetAmountCents: goal.targetAmountCents,
         targetDate: goal.targetDate,
@@ -22,6 +27,26 @@ export function loadGoals(asOfDate?: string) {
       fund.asOfDate,
       fund.avgMonthlySurplusCents,
     ),
+  );
+
+  const capacity = allocateCapacity(
+    rawGoals.map((goal, i) => ({
+      id: goal.id,
+      fullMonthsUntilTarget: feasibilities[i].fullMonthsUntilTarget,
+      requiredMonthlyCents: feasibilities[i].requiredMonthlyCents,
+      remainingCents: feasibilities[i].remainingCents,
+      plannedMonthlyCents: goal.plannedMonthlyCents,
+    })),
+    fund.avgMonthlySurplusCents,
+  );
+  const capacityMap = new Map(capacity.items.map((c) => [c.id, c]));
+
+  const goals: GoalView[] = rawGoals.map((goal, i) => ({
+    goal,
+    feasibility: {
+      ...feasibilities[i],
+      status: capacityMap.get(goal.id)?.status ?? feasibilities[i].status,
+    },
   }));
 
   return {
@@ -29,5 +54,6 @@ export function loadGoals(asOfDate?: string) {
     asOfDate: fund.asOfDate,
     avgMonthlySurplusCents: fund.avgMonthlySurplusCents,
     goals,
+    portfolioVerdict: capacity.portfolioVerdict,
   };
 }

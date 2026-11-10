@@ -10,6 +10,7 @@ export const STATUS_LABELS: Record<GoalStatus, string> = {
   on_track: "On track",
   tight: "Tight",
   shortfall: "Shortfall",
+  overdue: "Overdue",
 };
 
 export function formatIsoDate(isoDate: string): string {
@@ -44,6 +45,8 @@ export function goalTemplateExplanation(input: {
       "This goal is tight. The comparison amount is at least 80% of the required monthly contribution and still below it.",
     shortfall:
       "This goal is short. The comparison amount is below 80% of the required monthly contribution, so the target date is out of reach at the current pace.",
+    overdue:
+      "This goal is overdue. The target date has passed. Update the target date or mark it as reached.",
   };
 
   const basis = input.hasPlannedMonthly

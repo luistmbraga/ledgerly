@@ -4,6 +4,7 @@ import { trailingFullMonthRanges } from "./emergency-fund";
 import { buildFindings, type Finding } from "./findings";
 import type { BudgetStatus } from "./budgets";
 import {
+  allocateCapacity,
   computeGoalFeasibility,
   sumShortGoalRemainingCents,
   type GoalStatus,
@@ -203,7 +204,7 @@ export function buildFinancialSnapshot(
     input.emergencyFund.essentialMonthlyAverageCents,
   );
   const avgMonthlySurplusCents = input.emergencyFund.avgMonthlySurplusCents ?? 0;
-  const goals = input.goals.map((goal) => {
+  const rawGoals = input.goals.map((goal) => {
     const feasibility = computeGoalFeasibility(
       {
         targetAmountCents: goal.targetAmountCents,
@@ -224,10 +225,26 @@ export function buildFinancialSnapshot(
       setAsideCents: goal.setAsideCents,
       remainingCents: feasibility.remainingCents,
       requiredMonthlyCents: feasibility.requiredMonthlyCents,
-      status: feasibility.status,
       plannedMonthlyCents: goal.plannedMonthlyCents,
+      fullMonthsUntilTarget: feasibility.fullMonthsUntilTarget,
     };
   });
+
+  const capacity = allocateCapacity(rawGoals, avgMonthlySurplusCents);
+  const capacityMap = new Map(capacity.items.map((c) => [c.id, c]));
+
+  const goals = rawGoals.map((g) => ({
+    id: g.id,
+    name: g.name,
+    bucket: g.bucket,
+    targetAmountCents: g.targetAmountCents,
+    targetDate: g.targetDate,
+    setAsideCents: g.setAsideCents,
+    remainingCents: g.remainingCents,
+    requiredMonthlyCents: g.requiredMonthlyCents,
+    status: (capacityMap.get(g.id)?.status ?? "shortfall") as GoalStatus,
+    plannedMonthlyCents: g.plannedMonthlyCents,
+  }));
 
   const shortGoalRemainingCents = sumShortGoalRemainingCents(goals);
   const investable = computeInvestableMix(input.allocationAssets ?? [], {
