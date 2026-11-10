@@ -112,6 +112,28 @@ export function listAllSnapshotsByAssetIds(assetIds: number[]): Map<number, Snap
   return result;
 }
 
+/** Returns all snapshots for each of the given liability IDs, grouped by liabilityId, ordered DESC. */
+export function listAllSnapshotsByLiabilityIds(liabilityIds: number[]): Map<number, SnapshotRecord[]> {
+  if (liabilityIds.length === 0) return new Map();
+  const rows = db
+    .select()
+    .from(valueSnapshots)
+    .where(inArray(valueSnapshots.liabilityId, liabilityIds))
+    .orderBy(desc(valueSnapshots.recordedOn), desc(valueSnapshots.id))
+    .all();
+  const result = new Map<number, SnapshotRecord[]>();
+  for (const row of rows) {
+    if (row.liabilityId === null) continue;
+    const list = result.get(row.liabilityId);
+    if (list) {
+      list.push(row);
+    } else {
+      result.set(row.liabilityId, [row]);
+    }
+  }
+  return result;
+}
+
 export function listSnapshotsForAsset(assetId: number): SnapshotRecord[] {
   return db
     .select()

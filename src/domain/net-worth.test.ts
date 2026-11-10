@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ASSET_TYPES,
   computeNetWorth,
+  computeNetWorthSeries,
   selectLatestSnapshot,
   type DatedSnapshot,
 } from "./net-worth";
@@ -102,5 +103,130 @@ describe("computeNetWorth", () => {
     expect(result.byAssetType.real_estate).toBe(3_500);
     expect(result.totalLiabilitiesCents).toBe(150);
     expect(result.netWorthCents).toBe(3_350);
+  });
+});
+
+describe("computeNetWorthSeries", () => {
+  it("returns empty when there are no snapshots", () => {
+    expect(computeNetWorthSeries([], [], "2026-11-10")).toEqual([]);
+  });
+
+  it("returns a single point when snapshots are only in the current month", () => {
+    const series = computeNetWorthSeries(
+      [{ snapshots: [{ id: 1, recordedOn: "2026-11-01", amountCents: 10_000 }] }],
+      [],
+      "2026-11-10",
+    );
+    expect(series).toHaveLength(1);
+    expect(series[0].date).toBe("2026-11-10");
+    expect(series[0].netWorthCents).toBe(10_000);
+  });
+
+  it("caps the last point at asOfDate when it falls mid-month", () => {
+    const series = computeNetWorthSeries(
+      [{ snapshots: [{ id: 1, recordedOn: "2026-10-01", amountCents: 5_000 }] }],
+      [],
+      "2026-10-15",
+    );
+    expect(series).toHaveLength(1);
+    expect(series[0].date).toBe("2026-10-15");
+  });
+
+  it("produces a month-end date when asOfDate is itself a month-end", () => {
+    const series = computeNetWorthSeries(
+      [{ snapshots: [{ id: 1, recordedOn: "2026-10-01", amountCents: 5_000 }] }],
+      [],
+      "2026-10-31",
+    );
+    expect(series[0].date).toBe("2026-10-31");
+  });
+
+  it("returns two points when snapshots span two calendar months", () => {
+    const series = computeNetWorthSeries(
+      [
+        {
+          snapshots: [
+            { id: 1, recordedOn: "2026-10-15", amountCents: 10_000 },
+            { id: 2, recordedOn: "2026-11-05", amountCents: 11_000 },
+          ],
+        },
+      ],
+      [],
+      "2026-11-10",
+    );
+    expect(series).toHaveLength(2);
+    expect(series[0].date).toBe("2026-10-31");
+    expect(series[0].netWorthCents).toBe(10_000);
+    expect(series[1].date).toBe("2026-11-10");
+    expect(series[1].netWorthCents).toBe(11_000);
+  });
+
+  it("carries forward the last known value for months without a snapshot", () => {
+    const series = computeNetWorthSeries(
+      [
+        {
+          snapshots: [
+            { id: 1, recordedOn: "2026-09-20", amountCents: 10_000 },
+            { id: 2, recordedOn: "2026-11-01", amountCents: 12_000 },
+          ],
+        },
+      ],
+      [],
+      "2026-11-10",
+    );
+    expect(series).toHaveLength(3);
+    expect(series[0].date).toBe("2026-09-30");
+    expect(series[0].netWorthCents).toBe(10_000);
+    expect(series[1].date).toBe("2026-10-31");
+    expect(series[1].netWorthCents).toBe(10_000); // carry forward
+    expect(series[2].date).toBe("2026-11-10");
+    expect(series[2].netWorthCents).toBe(12_000);
+  });
+
+  it("shows 0 for an asset before its first snapshot (no retroactive distortion)", () => {
+    const series = computeNetWorthSeries(
+      [
+        { snapshots: [{ id: 1, recordedOn: "2026-09-01", amountCents: 10_000 }] },
+        { snapshots: [{ id: 2, recordedOn: "2026-11-01", amountCents: 5_000 }] },
+      ],
+      [],
+      "2026-11-10",
+    );
+    expect(series).toHaveLength(3);
+    expect(series[0].netWorthCents).toBe(10_000); // Sep: only first asset
+    expect(series[1].netWorthCents).toBe(10_000); // Oct: only first asset
+    expect(series[2].netWorthCents).toBe(15_000); // Nov: both assets
+  });
+
+  it("subtracts liabilities correctly at each point", () => {
+    const series = computeNetWorthSeries(
+      [{ snapshots: [{ id: 1, recordedOn: "2026-10-01", amountCents: 50_000 }] }],
+      [{ snapshots: [{ id: 2, recordedOn: "2026-10-01", amountCents: 10_000 }] }],
+      "2026-10-31",
+    );
+    expect(series).toHaveLength(1);
+    expect(series[0].totalAssetsCents).toBe(50_000);
+    expect(series[0].totalLiabilitiesCents).toBe(10_000);
+    expect(series[0].netWorthCents).toBe(40_000);
+  });
+
+  it("spans a year boundary correctly", () => {
+    const series = computeNetWorthSeries(
+      [
+        {
+          snapshots: [
+            { id: 1, recordedOn: "2025-12-01", amountCents: 100_000 },
+            { id: 2, recordedOn: "2026-01-05", amountCents: 105_000 },
+          ],
+        },
+      ],
+      [],
+      "2026-01-31",
+    );
+    expect(series).toHaveLength(2);
+    expect(series[0].date).toBe("2025-12-31");
+    expect(series[0].netWorthCents).toBe(100_000);
+    expect(series[1].date).toBe("2026-01-31");
+    expect(series[1].netWorthCents).toBe(105_000);
   });
 });

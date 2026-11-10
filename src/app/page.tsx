@@ -4,8 +4,9 @@ import { ASSET_TYPES } from "@/domain/net-worth";
 import { formatMoney } from "@/lib/money";
 import { formatRatio } from "@/lib/percent";
 import { todayUtc } from "@/lib/dates";
-import { getDashboardSummary, getCashflowKpis } from "@/services/dashboard-summary";
+import { getDashboardSummary, getCashflowKpis, getNetWorthSeries } from "@/services/dashboard-summary";
 import type { CashflowKpis } from "@/services/dashboard-summary";
+import { TrendChart } from "@/components/trend-chart";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
 import { narrateDashboardTips } from "@/ai/tasks/tips";
 import type { DashboardTip } from "@/services/tips-service";
@@ -21,6 +22,7 @@ export default async function DashboardPage() {
   const asOfDate = todayUtc();
   const summary = getDashboardSummary();
   const kpis = getCashflowKpis(asOfDate);
+  const netWorthSeries = getNetWorthSeries(asOfDate);
   const fund = getEmergencyFund(asOfDate);
   const goals = loadGoals(asOfDate);
   const { netWorth, currency } = summary;
@@ -44,6 +46,7 @@ export default async function DashboardPage() {
             {formatMoney(netWorth.totalAssetsCents, currency)} assets minus{" "}
             {formatMoney(netWorth.totalLiabilitiesCents, currency)} liabilities
           </p>
+          <TrendChart points={netWorthSeries} currency={currency} />
         </header>
       ) : (
         <header className="border-b border-stone-200 pb-4">

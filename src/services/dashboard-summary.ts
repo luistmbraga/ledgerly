@@ -1,5 +1,5 @@
-import { computeNetWorth } from "@/domain/net-worth";
-import type { AssetType, NetWorthResult } from "@/domain/net-worth";
+import { computeNetWorth, computeNetWorthSeries } from "@/domain/net-worth";
+import type { AssetType, NetWorthResult, NetWorthPoint } from "@/domain/net-worth";
 import {
   trailingFullMonthRanges,
   type SurplusSource,
@@ -18,7 +18,10 @@ import {
   getLatestSnapshotsByAssetIds,
   getLatestSnapshotsByLiabilityIds,
   listAllSnapshotsByAssetIds,
+  listAllSnapshotsByLiabilityIds,
 } from "@/db/repositories/snapshots";
+
+export type { NetWorthPoint };
 
 export type DashboardSummary = {
   currency: string;
@@ -154,6 +157,31 @@ export function getCashflowKpis(asOfDate: string): CashflowKpis {
     source: "derived",
     confidence: worstConfidence,
   };
+}
+
+export function getNetWorthSeries(asOfDate: string): NetWorthPoint[] {
+  const assets = listAssets();
+  const liabilities = listLiabilities();
+  const allAssetSnapshots = listAllSnapshotsByAssetIds(assets.map((a) => a.id));
+  const allLiabilitySnapshots = listAllSnapshotsByLiabilityIds(liabilities.map((l) => l.id));
+
+  const assetSeries = assets.map((asset) => ({
+    snapshots: (allAssetSnapshots.get(asset.id) ?? []).map((s) => ({
+      id: s.id,
+      recordedOn: s.recordedOn,
+      amountCents: s.amountCents,
+    })),
+  }));
+
+  const liabilitySeries = liabilities.map((liability) => ({
+    snapshots: (allLiabilitySnapshots.get(liability.id) ?? []).map((s) => ({
+      id: s.id,
+      recordedOn: s.recordedOn,
+      amountCents: s.amountCents,
+    })),
+  }));
+
+  return computeNetWorthSeries(assetSeries, liabilitySeries, asOfDate);
 }
 
 function noData(): CashflowKpis {
