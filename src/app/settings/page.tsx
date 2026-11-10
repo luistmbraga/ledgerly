@@ -1,5 +1,6 @@
 import { getSettings } from "@/db/repositories/settings";
 import { SettingsForm } from "./settings-form";
+import { BackupSection } from "./backup-section";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -44,6 +45,8 @@ export default async function SettingsPage({
             Settings are not initialized. Run pnpm db:migrate.
           </p>
         )}
+
+        <BackupSection />
 
         <dl className="grid gap-3 border-t border-stone-200 pt-4 text-sm">
           <div>
