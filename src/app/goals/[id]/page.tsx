@@ -9,10 +9,10 @@ import { centsToDecimalInput, formatMoney } from "@/lib/money";
 import { todayUtc } from "@/lib/dates";
 import { deleteGoalAction, updateGoalAction } from "../actions";
 import { BucketBadge, StatusChip } from "../goal-bits";
-import { GoalForm, percentDefault } from "../goal-form";
+import { GoalForm } from "../goal-form";
 import { explainGoal, type GoalExplainRequest } from "@/ai/tasks/goal-explain";
 import { explainGoalAction } from "@/app/ai-actions";
-import { formatIsoDate, goalTemplateExplanation } from "../labels";
+import { bpsToPercentInput, formatIsoDate, goalTemplateExplanation } from "../labels";
 import { loadGoals } from "../load";
 
 export const dynamic = "force-dynamic";
@@ -147,7 +147,10 @@ export default async function GoalDetailPage({
                   goal.plannedMonthlyCents === null
                     ? ""
                     : centsToDecimalInput(goal.plannedMonthlyCents),
-                expectedReturnPercent: percentDefault(goal.expectedAnnualReturnBps),
+                expectedReturnPercent:
+                  goal.expectedAnnualReturnBps === null
+                    ? ""
+                    : bpsToPercentInput(goal.expectedAnnualReturnBps),
               }}
             />
           </div>

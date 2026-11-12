@@ -166,6 +166,13 @@ Read-only sandbox. Nothing on this screen is saved.
 
 **Add goal form:** name, target amount, target date, set aside, optional planned monthly, optional expected return %.
 
+**Budget check (slice 23):** section between the list and the add form. Optional "What is it for?" and required "By when?" date (GET form, `?checkName=&checkDate=#budget`).
+
+- Shows three tier cards (Comfortable 50%, Balanced 80%, Stretch 100% of both spare cash and free monthly surplus): ceiling (large), "Saving X a month for N months, plus Y of spare cash".
+- "How this is worked out" lists the average surplus, the amount reserved for other goals, and spare cash above the emergency fund target.
+- "Use as goal" fills the add form (name, amount, date, set aside = tier's share of spare cash, planned monthly = tier monthly); nothing is saved until the user clicks "Add goal". Hidden on a zero ceiling.
+- Past or invalid date → inline error, no result. No surplus history → note that only spare cash is used; if nothing is free either, one sentence linking to Activity and Update. Nothing free → one sentence with a link to What-if.
+
 **Detail `/goals/[id]`:**
 
 - Status, required monthly (large)

@@ -4,7 +4,6 @@ import { useActionState } from "react";
 import { MoneyInput } from "@/components/money-input";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionState } from "@/lib/action-state";
-import { bpsToPercentInput } from "./labels";
 
 export type GoalFormDefaults = {
   name: string;
@@ -144,8 +143,4 @@ export function GoalForm({ action, submitLabel, id, defaults }: GoalFormProps) {
       <SubmitButton>{submitLabel}</SubmitButton>
     </form>
   );
-}
-
-export function percentDefault(bps: number | null): string {
-  return bps === null ? "" : bpsToPercentInput(bps);
 }

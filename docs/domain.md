@@ -237,6 +237,30 @@ If `remainingCents === 0`, status `on_track`.
 
 ---
 
+## Goal budget ceiling (slice 23)
+
+Reverse of goal feasibility: the user picks a date, code returns how much they could aim to spend by then. Implemented in `src/domain/goal-budget.ts`.
+
+```
+monthsRemaining      = max(1, full months from asOfDate to targetDate)   // same rule as goal feasibility
+reservedMonthlyCents = sum over goals that are not overdue and have remainingCents > 0 of
+                         (plannedMonthlyCents ?? requiredMonthlyCents)
+freeMonthlyCents     = max(0, avgMonthlySurplusCents - reservedMonthlyCents)
+spareCashCents       = max(0, emergencyFund.eligibleCents - emergencyFund.targetCents - sum(goal.setAsideCents))
+
+for each tier (comfortable 50%, balanced 80%, stretch 100%):
+  cashCents    = floor(spareCashCents * share / 100)
+  monthlyCents = floor(freeMonthlyCents * share / 100)
+  ceilingCents = cashCents + monthlyCents * monthsRemaining
+```
+
+- Target date before `asOfDate` is a validation error.
+- When the surplus source is `none` (no history), monthly saving is treated as 0; the ceiling is the tier's share of spare cash.
+- Flat saving, no investment return. Spare cash a tier does not use stays unallocated.
+- Saving a tier as a goal (`targetAmount = ceilingCents`, `setAside = cashCents`, `plannedMonthly = monthlyCents`) gives status `on_track`.
+
+---
+
 ## Investor personality (self-assessment)
 
 Five dimensions, each scored from quiz options. Store each answer; on submit compute scores and `label`.
