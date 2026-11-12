@@ -143,15 +143,16 @@ export async function updateAssetAction(
   const { errors, input } = validateAssetFields(formData);
   if (!input) return { errors, values };
 
+  let updated: ReturnType<typeof updateAsset>;
   try {
-    const updated = updateAsset(id, input);
-    if (!updated) redirect("/assets?error=" + encodeURIComponent("Asset not found."));
+    updated = updateAsset(id, input);
   } catch (error) {
     return {
       errors: { _form: error instanceof Error ? error.message : "Could not save the asset." },
       values,
     };
   }
+  if (!updated) redirect("/assets?error=" + encodeURIComponent("Asset not found."));
   revalidatePath(`/assets/${id}`);
   revalidatePath("/assets");
   revalidatePath("/");
@@ -243,19 +244,20 @@ export async function updateAssetSnapshotAction(
 
   if (Object.keys(errors).length > 0) return { errors, values };
 
+  let updated: ReturnType<typeof updateSnapshot>;
   try {
-    const updated = updateSnapshot(snapshotId, {
+    updated = updateSnapshot(snapshotId, {
       recordedOn: values.recordedOn,
       amountCents: (parsed as { ok: true; cents: number }).cents,
       note: values.note.trim().length === 0 ? null : values.note.trim(),
     });
-    if (!updated) redirect(path + "?error=" + encodeURIComponent("Snapshot not found."));
   } catch (error) {
     return {
       errors: { _form: error instanceof Error ? error.message : "Could not update the snapshot." },
       values,
     };
   }
+  if (!updated) redirect(path + "?error=" + encodeURIComponent("Snapshot not found."));
   revalidatePath(path);
   revalidatePath("/assets");
   revalidatePath("/");

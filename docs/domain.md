@@ -395,6 +395,33 @@ AI suggestion must return one of existing category ids or `null`—see [ai-contr
 
 ---
 
+## What-if scenarios (slice 21)
+
+Implemented in `src/domain/scenario.ts`. A scenario is never persisted and never changes a snapshot, journal entry or setting. Baseline and scenario outcomes come from the same function, which calls the existing goal, emergency fund, projection and runway calculators.
+
+**Adjustments**
+
+- Income change `Δincome` and spending change `Δspending`: a signed amount in cents, or signed basis points of the trailing 3-month monthly average. `Δ = round_half_away_from_zero(average × bps / 10000)`. Percent is only valid when that average is known (all three months journal-covered).
+- `surplus' = surplus + Δincome − Δspending`. Essential monthly spend and the emergency fund target are **not** changed by a spending change.
+- One-off amount `o` (signed): `netWorth' = netWorth + o`; `eligible' = max(0, eligible + o)`.
+- Extra debt payment `x` per month at annual rate `r` (user-entered, not stored) against the liability's latest balance `B`.
+
+**Outcomes**
+
+- Surplus left to allocate = `surplus' − x`. Goals and the emergency fund close date use this figure.
+- Savings rate = `(income' − spending') / income'`, null when the split is unknown or `income' ≤ 0`.
+- Emergency fund gap = `max(0, target − eligible')`; close date as in the projection (`ceil(gap / surplus)` months), null when the surplus is not positive.
+- Net worth projection without a debt lever: the standard projection formula.
+- With a debt lever, per month, with `reduction₀ = 0`:
+  - if `reduction < B`: `grown = min(B, round(reduction × (1 + r/12)))`, `payment = min(x, B − grown)`, `reduction = grown + payment`; otherwise `payment = 0`
+  - `balance = round(balance × (1 + monthlyReturn)) + (surplus' − payment)`
+  - projected net worth = `balance + reduction`
+  - interest avoided = `reduction − Σ payment`
+
+`reduction` is how much lower the debt is than it would otherwise be. It is capped at today's balance because the regular payment schedule is unknown; no payoff date is produced.
+
+---
+
 ## Versioning
 
 When formulas change, bump `DOMAIN_VERSION` in code and `promptVersion` for AI tasks so cached results invalidate.

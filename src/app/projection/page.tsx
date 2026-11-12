@@ -8,28 +8,12 @@ import {
   projectEmergencyFundClose,
   projectNetWorth,
 } from "@/domain/projection";
+import { formatIsoToMonthYear, formatMonths } from "./format";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const HORIZON_YEARS = [1, 3, 5, 10] as const;
-
-function formatMonths(months: number): string {
-  if (months < 12) return `${months} month${months === 1 ? "" : "s"}`;
-  const years = Math.floor(months / 12);
-  const rem = months % 12;
-  if (rem === 0) return `${years} year${years === 1 ? "" : "s"}`;
-  return `${years} yr ${rem} mo`;
-}
-
-function formatIsoToMonthYear(isoDate: string): string {
-  const [year, month] = isoDate.split("-");
-  const labels = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-  return `${labels[Number(month) - 1]} ${year}`;
-}
 
 export default function ProjectionPage() {
   const asOfDate = todayUtc();

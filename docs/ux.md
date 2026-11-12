@@ -32,6 +32,8 @@ Desktop-first responsive layout. Primary navigation: persistent sidebar (collaps
 | `/emergency-fund` | Emergency fund |
 | `/goals` | Goals list |
 | `/goals/[id]` | Goal detail |
+| `/projection` | Projection |
+| `/what-if` | What-if sandbox (slice 21) |
 | `/personality` | Quiz or profile |
 | `/briefing` | Investment briefing |
 | `/settings` | Settings |
@@ -127,6 +129,25 @@ Header link **Import statement** → `/activity/import`.
 - List liquid assets contributing
 
 **Empty:** No liquid assets → CTA mark cash accounts as liquid or add cash asset.
+
+---
+
+## What-if `/what-if` (slice 21)
+
+Read-only sandbox. Nothing on this screen is saved.
+
+**Form (GET, state in the URL):**
+
+- Monthly income change and monthly spending change: signed amount per month, or percent when three full journal months exist
+- One-off amount: plus for a windfall, minus for a purchase
+- Extra debt payment: liability, extra per month, annual interest rate (typed for the what-if only)
+- "Run what-if" and "Reset"
+
+**Shows:** current figure next to the what-if figure for surplus left to allocate, savings rate, net worth today, emergency fund gap and close date, each goal's status, the net worth projection table (same horizons and return assumptions as Projection), estimated interest avoided, and runway.
+
+**Marker rule:** every what-if figure is rendered by `ScenarioFigure` (amber dashed box with a "What-if" tag). A persistent note at the top says the screen is hypothetical.
+
+**Empty and error states:** no changes entered → current figures only. Invalid field → inline message, typed text kept, current figures only. No liabilities with a balance → debt lever hidden. No goals → goals block hidden.
 
 ---
 

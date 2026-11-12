@@ -16,6 +16,7 @@ const NAV_SECONDARY = [
   { href: "/liabilities", label: "Liabilities" },
   { href: "/emergency-fund", label: "Emergency fund" },
   { href: "/projection", label: "Projection" },
+  { href: "/what-if", label: "What-if" },
   { href: "/personality", label: "Personality" },
   { href: "/briefing", label: "Briefing" },
   { href: "/settings", label: "Settings" },

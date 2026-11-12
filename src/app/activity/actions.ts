@@ -250,15 +250,17 @@ export async function updateExpenseAction(
   const { errors, input } = validateJournalFields(formData);
   if (!input) return { errors, values };
 
+  let updated: ReturnType<typeof updateExpense>;
   try {
-    if (!updateExpense(id, input)) {
-      redirect(activityPath("expenses", { error: "Expense not found." }));
-    }
+    updated = updateExpense(id, input);
   } catch (error) {
     return {
       errors: { _form: error instanceof Error ? error.message : "Could not save the expense." },
       values,
     };
+  }
+  if (!updated) {
+    redirect(activityPath("expenses", { error: "Expense not found." }));
   }
   revalidateJournalPaths(input.assetId);
   redirect(activityPath("expenses", { saved: "expense-updated" }));
@@ -307,15 +309,17 @@ export async function updateIncomeAction(
   const { errors, input } = validateJournalFields(formData);
   if (!input) return { errors, values };
 
+  let updated: ReturnType<typeof updateIncome>;
   try {
-    if (!updateIncome(id, input)) {
-      redirect(activityPath("income", { error: "Income not found." }));
-    }
+    updated = updateIncome(id, input);
   } catch (error) {
     return {
       errors: { _form: error instanceof Error ? error.message : "Could not save the income." },
       values,
     };
+  }
+  if (!updated) {
+    redirect(activityPath("income", { error: "Income not found." }));
   }
   revalidateJournalPaths(input.assetId);
   redirect(activityPath("income", { saved: "income-updated" }));
@@ -475,20 +479,21 @@ export async function updateCategoryAction(
     }
   }
 
+  let updated: ReturnType<typeof updateCategory>;
   try {
-    const updated = updateCategory(id, {
+    updated = updateCategory(id, {
       name,
       kind,
       isEssential: formData.get("isEssential") === "1",
       budgetMonthlyCents,
     });
-    if (!updated) redirect(activityPath(tab, { error: "Category not found." }));
   } catch (error) {
     return {
       errors: { _form: error instanceof Error ? error.message : "Could not save the category." },
       values,
     };
   }
+  if (!updated) redirect(activityPath(tab, { error: "Category not found." }));
   revalidatePath("/activity");
   redirect(activityPath(tab, { saved: "category-updated" }));
 }

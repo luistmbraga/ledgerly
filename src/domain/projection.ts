@@ -23,6 +23,21 @@ export const SCENARIOS = [
 export type ScenarioKey = (typeof SCENARIOS)[number]["key"];
 
 /**
+ * One month of the projection: grow the balance, then add the contribution.
+ * A zero rate is plain addition, which avoids float noise.
+ */
+export function stepBalance(
+  balanceCents: number,
+  monthlyRate: number,
+  contributionCents: number,
+): number {
+  if (monthlyRate > 0) {
+    return Math.round(balanceCents * (1 + monthlyRate)) + contributionCents;
+  }
+  return balanceCents + contributionCents;
+}
+
+/**
  * Project net worth at given year milestones for a single return assumption.
  * Per-month formula: balance = round(balance × (1 + monthlyRate)) + surplus.
  * Zero return falls back to linear accumulation to avoid float noise.
@@ -48,11 +63,7 @@ export function projectNetWorth(
   const milestones: NetWorthMilestone[] = [];
 
   for (let m = 1; m <= maxMonths; m++) {
-    if (monthlyRate > 0) {
-      balance = Math.round(balance * (1 + monthlyRate)) + avgMonthlySurplusCents;
-    } else {
-      balance += avgMonthlySurplusCents;
-    }
+    balance = stepBalance(balance, monthlyRate, avgMonthlySurplusCents);
     if (targets.has(m)) {
       milestones.push({ years: m / 12, netWorthCents: balance });
     }

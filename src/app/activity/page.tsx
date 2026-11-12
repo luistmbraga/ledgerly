@@ -238,8 +238,50 @@ function ExpenseTab({
   const mtdSpend: Record<number, number> = {};
   for (const r of mtdRows) mtdSpend[r.categoryId] = r.totalCents;
 
+  const formSection = (
+    <section
+      id="journal-form"
+      className={`max-w-xl scroll-mt-6 ${editing ? "" : "border-t border-stone-200 pt-6"}`}
+    >
+      <h2 className="text-lg font-semibold">
+        {editing ? "Edit expense" : rows.length === 0 ? "Add your first expense" : "Add expense"}
+      </h2>
+      <div className="mt-4">
+        <JournalForm
+          key={editing ? `edit-${editing.id}` : "new"}
+          action={editing ? updateExpenseAction : createExpenseAction}
+          idPrefix={editing ? `expense-${editing.id}` : "expense-new"}
+          submitLabel={editing ? "Save expense" : "Add expense"}
+          categories={categories}
+          cashAccounts={cashAccounts}
+          cancelHref={editing ? "/activity?tab=expenses" : undefined}
+          entryId={editing?.id}
+          suggestExpenseId={editing?.id ?? null}
+          defaults={
+            editing
+              ? {
+                  amount: centsToDecimalInput(editing.amountCents),
+                  occurredOn: editing.occurredOn,
+                  categoryId: editing.categoryId,
+                  assetId: editing.assetId,
+                  note: editing.note ?? "",
+                }
+              : {
+                  amount: "",
+                  occurredOn: todayUtc(),
+                  categoryId: null,
+                  assetId: null,
+                  note: "",
+                }
+          }
+        />
+      </div>
+    </section>
+  );
+
   return (
     <>
+      {editing ? formSection : null}
       {rows.length === 0 ? (
         <p className="text-sm text-stone-700">
           No expenses yet. Add a date, amount, and optional category to start
@@ -267,8 +309,13 @@ function ExpenseTab({
                 return (
                   <tr
                     key={row.id}
+                    aria-current={row.id === editing?.id ? "true" : undefined}
                     className={`border-b border-stone-100 ${
-                      uncategorized ? "bg-amber-50" : ""
+                      row.id === editing?.id
+                        ? "bg-teal-50"
+                        : uncategorized
+                          ? "bg-amber-50"
+                          : ""
                     }`}
                   >
                     <td className="py-3 pr-4">{formatIsoDate(row.occurredOn)}</td>
@@ -294,7 +341,7 @@ function ExpenseTab({
                     <td className="py-3">
                       <div className="flex flex-wrap gap-2">
                         <Link
-                          href={`/activity?tab=expenses&edit=${row.id}`}
+                          href={`/activity?tab=expenses&edit=${row.id}#journal-form`}
                           className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
                         >
                           Edit
@@ -333,40 +380,7 @@ function ExpenseTab({
         </div>
       )}
 
-      <section className="max-w-xl border-t border-stone-200 pt-6">
-        <h2 className="text-lg font-semibold">
-          {editing ? "Edit expense" : rows.length === 0 ? "Add your first expense" : "Add expense"}
-        </h2>
-        <div className="mt-4">
-          <JournalForm
-            action={editing ? updateExpenseAction : createExpenseAction}
-            idPrefix={editing ? `expense-${editing.id}` : "expense-new"}
-            submitLabel={editing ? "Save expense" : "Add expense"}
-            categories={categories}
-            cashAccounts={cashAccounts}
-            cancelHref={editing ? "/activity?tab=expenses" : undefined}
-            entryId={editing?.id}
-            suggestExpenseId={editing?.id ?? null}
-            defaults={
-              editing
-                ? {
-                    amount: centsToDecimalInput(editing.amountCents),
-                    occurredOn: editing.occurredOn,
-                    categoryId: editing.categoryId,
-                    assetId: editing.assetId,
-                    note: editing.note ?? "",
-                  }
-                : {
-                    amount: "",
-                    occurredOn: todayUtc(),
-                    categoryId: null,
-                    assetId: null,
-                    note: "",
-                  }
-            }
-          />
-        </div>
-      </section>
+      {editing ? null : formSection}
 
       <CategoryPanel kind="expense" categories={categories} mtdSpend={mtdSpend} currency={currency} />
     </>
@@ -386,8 +400,49 @@ function IncomeTab({
   const editing = editId === undefined ? undefined : rows.find((row) => row.id === editId);
   const frozen = buildFrozenSet(rows);
 
+  const formSection = (
+    <section
+      id="journal-form"
+      className={`max-w-xl scroll-mt-6 ${editing ? "" : "border-t border-stone-200 pt-6"}`}
+    >
+      <h2 className="text-lg font-semibold">
+        {editing ? "Edit income" : rows.length === 0 ? "Add your first income" : "Add income"}
+      </h2>
+      <div className="mt-4">
+        <JournalForm
+          key={editing ? `edit-${editing.id}` : "new"}
+          action={editing ? updateIncomeAction : createIncomeAction}
+          idPrefix={editing ? `income-${editing.id}` : "income-new"}
+          submitLabel={editing ? "Save income" : "Add income"}
+          categories={categories}
+          cashAccounts={cashAccounts}
+          cancelHref={editing ? "/activity?tab=income" : undefined}
+          entryId={editing?.id}
+          defaults={
+            editing
+              ? {
+                  amount: centsToDecimalInput(editing.amountCents),
+                  occurredOn: editing.occurredOn,
+                  categoryId: editing.categoryId,
+                  assetId: editing.assetId,
+                  note: editing.note ?? "",
+                }
+              : {
+                  amount: "",
+                  occurredOn: todayUtc(),
+                  categoryId: null,
+                  assetId: null,
+                  note: "",
+                }
+          }
+        />
+      </div>
+    </section>
+  );
+
   return (
     <>
+      {editing ? formSection : null}
       {rows.length === 0 ? (
         <p className="text-sm text-stone-700">
           No income yet. Add a date, amount, and optional category to start the
@@ -412,7 +467,11 @@ function IncomeTab({
               {rows.map((row) => {
                 const isFrozen = frozen.has(row.id);
                 return (
-                  <tr key={row.id} className="border-b border-stone-100">
+                  <tr
+                    key={row.id}
+                    aria-current={row.id === editing?.id ? "true" : undefined}
+                    className={`border-b border-stone-100 ${row.id === editing?.id ? "bg-teal-50" : ""}`}
+                  >
                     <td className="py-3 pr-4">{formatIsoDate(row.occurredOn)}</td>
                     <td className="py-3 pr-4 text-stone-800">
                       {row.categoryId === null ? "Uncategorized" : row.categoryName}
@@ -432,7 +491,7 @@ function IncomeTab({
                     <td className="py-3">
                       <div className="flex flex-wrap gap-2">
                         <Link
-                          href={`/activity?tab=income&edit=${row.id}`}
+                          href={`/activity?tab=income&edit=${row.id}#journal-form`}
                           className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
                         >
                           Edit
@@ -471,39 +530,7 @@ function IncomeTab({
         </div>
       )}
 
-      <section className="max-w-xl border-t border-stone-200 pt-6">
-        <h2 className="text-lg font-semibold">
-          {editing ? "Edit income" : rows.length === 0 ? "Add your first income" : "Add income"}
-        </h2>
-        <div className="mt-4">
-          <JournalForm
-            action={editing ? updateIncomeAction : createIncomeAction}
-            idPrefix={editing ? `income-${editing.id}` : "income-new"}
-            submitLabel={editing ? "Save income" : "Add income"}
-            categories={categories}
-            cashAccounts={cashAccounts}
-            cancelHref={editing ? "/activity?tab=income" : undefined}
-            entryId={editing?.id}
-            defaults={
-              editing
-                ? {
-                    amount: centsToDecimalInput(editing.amountCents),
-                    occurredOn: editing.occurredOn,
-                    categoryId: editing.categoryId,
-                    assetId: editing.assetId,
-                    note: editing.note ?? "",
-                  }
-                : {
-                    amount: "",
-                    occurredOn: todayUtc(),
-                    categoryId: null,
-                    assetId: null,
-                    note: "",
-                  }
-            }
-          />
-        </div>
-      </section>
+      {editing ? null : formSection}
 
       <CategoryPanel kind="income" categories={categories} />
     </>

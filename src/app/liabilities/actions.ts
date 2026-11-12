@@ -90,16 +90,17 @@ export async function updateLiabilityAction(
   const { errors, input } = validateLiabilityFields(formData);
   if (!input) return { errors, values };
 
+  let updated: ReturnType<typeof updateLiability>;
   try {
-    const updated = updateLiability(id, input);
-    if (!updated) {
-      redirect("/liabilities?error=" + encodeURIComponent("Liability not found."));
-    }
+    updated = updateLiability(id, input);
   } catch (error) {
     return {
       errors: { _form: error instanceof Error ? error.message : "Could not save the liability." },
       values,
     };
+  }
+  if (!updated) {
+    redirect("/liabilities?error=" + encodeURIComponent("Liability not found."));
   }
   revalidatePath(`/liabilities/${id}`);
   revalidatePath("/liabilities");
@@ -193,20 +194,21 @@ export async function updateLiabilitySnapshotAction(
 
   if (Object.keys(errors).length > 0) return { errors, values };
 
+  let updated: ReturnType<typeof updateSnapshot>;
   try {
-    const updated = updateSnapshot(snapshotId, {
+    updated = updateSnapshot(snapshotId, {
       recordedOn: values.recordedOn,
       amountCents: (parsed as { ok: true; cents: number }).cents,
       note: values.note.trim().length === 0 ? null : values.note.trim(),
     });
-    if (!updated) {
-      redirect(path + "?error=" + encodeURIComponent("Snapshot not found."));
-    }
   } catch (error) {
     return {
       errors: { _form: error instanceof Error ? error.message : "Could not update the snapshot." },
       values,
     };
+  }
+  if (!updated) {
+    redirect(path + "?error=" + encodeURIComponent("Snapshot not found."));
   }
   revalidatePath(path);
   revalidatePath("/liabilities");

@@ -75,6 +75,7 @@ export function JournalForm({
           name="occurredOn"
           type="date"
           required
+          autoFocus={entryId !== undefined}
           defaultValue={defaults?.occurredOn ?? ""}
           aria-invalid={!!e.occurredOn}
           aria-describedby={e.occurredOn ? `${dateId}-error` : undefined}

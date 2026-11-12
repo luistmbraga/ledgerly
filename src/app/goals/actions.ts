@@ -156,15 +156,16 @@ export async function updateGoalAction(
   const { errors, input } = validateGoalFields(formData);
   if (!input) return { errors, values };
 
+  let updated: ReturnType<typeof updateGoal>;
   try {
-    const updated = updateGoal(id, input);
-    if (!updated) redirect("/goals?error=" + encodeURIComponent("Goal not found."));
+    updated = updateGoal(id, input);
   } catch (error) {
     return {
       errors: { _form: error instanceof Error ? error.message : "Could not save the goal." },
       values,
     };
   }
+  if (!updated) redirect("/goals?error=" + encodeURIComponent("Goal not found."));
   refreshGoals(id);
   redirect(`/goals/${id}?saved=updated`);
 }
