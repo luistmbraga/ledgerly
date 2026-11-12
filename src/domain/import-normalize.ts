@@ -24,23 +24,32 @@ export type NormalizableRow = {
   issue: string | null;
 };
 
-const PREFIXES = ["compras c.deb ", "compra ", "trf mbway ", "trf ", "tfi "];
+// Bank movement-type prefixes, longest first. Card digits after them are dropped.
+const PREFIX = new RegExp(
+  "^(?:" +
+    [
+      String.raw`compras c\.deb`,
+      String.raw`compra(?: \d{4})?`,
+      String.raw`cred\.(?: \d{4})?`,
+      String.raw`lev atm(?: \d{4})?`,
+      String.raw`trf mb ?way(?: p/)?`,
+      String.raw`trf\. p/o`,
+      String.raw`trf p/`,
+      "trf",
+      "tfi",
+    ].join("|") +
+    String.raw`)\s+`,
+);
 
 /** Lower-cased, accent-free, without the bank's movement-type prefix, single-spaced. */
 export function normalizeDescription(description: string): string {
-  let text = description
+  const text = description
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
-  for (const prefix of PREFIXES) {
-    if (text.startsWith(prefix)) {
-      text = text.slice(prefix.length).trim();
-      break;
-    }
-  }
-  return text;
+  return text.replace(PREFIX, "").trim();
 }
 
 /**

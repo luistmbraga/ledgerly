@@ -88,6 +88,13 @@ export const cgdMovimentosParser: StatementParser = {
       .reverse()
       .map((row, index) => ({ ...row, position: index + 1 }));
 
-    return { parserId: this.id, label: this.label, ...readHeader(lines), rows };
+    return {
+      parserId: this.id,
+      label: this.label,
+      ...readHeader(lines),
+      openingBalanceCents: null,
+      notes: [],
+      rows,
+    };
   },
 };

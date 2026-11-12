@@ -45,6 +45,15 @@ describe("normalizeDescription", () => {
     expect(normalizeDescription("TFI RITA GOMES ALVES")).toBe("rita gomes alves");
     expect(normalizeDescription("Imposto de Sêlo")).toBe("imposto de selo");
   });
+
+  it("strips ActivoBank prefixes and card digits", () => {
+    expect(normalizeDescription("COMPRA 7526 IKEA BRAGA")).toBe("ikea braga");
+    expect(normalizeDescription("CRED. 7526 STRIPE IRELAND")).toBe("stripe ireland");
+    expect(normalizeDescription("LEV ATM 7526 CGD Braga")).toBe("cgd braga");
+    expect(normalizeDescription("TRF MB WAY P/ RUI COSTA")).toBe("rui costa");
+    expect(normalizeDescription("TRF. P/O ANA COSTA")).toBe("ana costa");
+    expect(normalizeDescription("TRF P/ Ana Costa")).toBe("ana costa");
+  });
 });
 
 describe("toCandidates", () => {

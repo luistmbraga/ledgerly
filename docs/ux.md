@@ -103,8 +103,8 @@ Header link **Import statement** → `/activity/import`.
 
 ## Import statement `/activity/import` (slice 15)
 
-- Upload a PDF (CGD "Consultar saldos e movimentos"), optional cash account, and how to update its balance: closing balance (default), after every row, or not at all
-- Preview: reconciliation note, balance note, totals, then every row with include checkbox, date, editable note, amount, category, and a check column for flags/issues
+- Upload a PDF (CGD "Consultar saldos e movimentos" or ActivoBank "Extrato Combinado", slice 16), optional cash account, and how to update its balance: closing balance (default), after every row, or not at all
+- Preview: parser notes (e.g. extra account sections ignored), reconciliation note, balance note, totals, then every row with include checkbox, date, editable note, amount, category, and a check column for flags/issues
 - Flagged rows (already imported, recurring, possible duplicate, own transfer, cancels out) start unticked; rows with issues cannot be selected
 - **Import N rows** writes everything in one go or nothing; errors name the row
 - Recent imports list with **Undo**

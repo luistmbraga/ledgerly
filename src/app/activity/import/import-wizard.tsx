@@ -63,8 +63,8 @@ export function ImportWizard({ cashAccounts, categories, currency }: Props) {
             className="text-sm text-stone-800 file:mr-3 file:rounded-md file:border file:border-stone-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-stone-800 hover:file:bg-stone-100"
           />
           <p className="text-xs text-stone-600">
-            Supported: Caixa Geral de Depósitos &ldquo;Consultar saldos e movimentos&rdquo; export.
-            The file is read on this computer and is not stored.
+            Supported: Caixa Geral de Depósitos &ldquo;Consultar saldos e movimentos&rdquo; export and
+            ActivoBank &ldquo;Extrato Combinado&rdquo;. The file is read on this computer and is not stored.
           </p>
         </div>
 
@@ -301,6 +301,12 @@ function PreviewPanel({
           You already imported this exact file on {preview.previousImports.map(formatIsoDate).join(", ")}.
         </p>
       ) : null}
+
+      {preview.notes.map((note) => (
+        <p key={note} className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
+          {note}
+        </p>
+      ))}
 
       <ReconciliationNote preview={preview} currency={currency} />
       <LinkNote preview={preview} currency={currency} />

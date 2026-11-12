@@ -1,0 +1,103 @@
+
+CE05669/01
+Banco ActivoBank, S.A. - Sede: Rua Augusta, 84, 1100-053 Lisboa
+Capital Social: Euros 217.600.000 - Matric. na Cons. do Registo Com. de Lisboa, com o nº único de matrícula e de identificação fiscal 500 734 305
+#S#ANA MARIA SOUSA COSTA#E#
+#S#RUA DO EXEMPLO 1#E#
+#S#1 ESQ#E#
+#S#1000-001 LISBOA#E#
+#S##E#
+26/10/30 EXT. N. 2026/011 DEPOSITO A ORDEM: 00000000001 NIB: #S#000000000000000000001#E#
+EXTRATO COMBINADO
+MOEDA BASE: EURO
+#S#IBAN: PT50 0000 0000 0000 0000 0001 1#E#
+BIC/SWIFT: ACTVPTPL
+MENSAGEM
+*** Alteração de Preçário Aviso 8/2009***
+A partir de 01/01/2027 entra em vigor uma nova versão do Preçário do
+ActivoBank publicada nos termos do Aviso 8/2009 do BdP. As alterações
+dizem respeito ao Folheto de Comissões e Despesas - 3. Cartões de
+Crédito e de Débito (particulares) - 3.4. Operações com Cartões - 3.
+Compras (POS) com a alteração da comissão de "Operações de Pagamento
+(Quasi-Cash)", que passará a ser 4,00€ + 0,50% + I.S.. Esta comissão
+aplica-se a transações realizadas em estabelecimentos comerciais de
+apostas, designadamente jogos, lotarias, casinos e/ou fichas de jogo
+realizadas com o Cartão de Crédito. Consulte as alterações em anexo e
+o documento atualizado no Site do ActivoBank - Preçário - Folheto de
+Comissões e Despesas - Alterações Futuras com data de entrada em vigor
+a 01/01/2027. Caso não concorde, pode resolver de imediato e sem
+custos o contrato, comunicando ao Banco a sua intenção através dos
+meios contratualmente previstos, continuando a ser responsável pelo
+pagamento de todas as quantias decorrentes da utilização da conta e
+do(s) cartão(ões).
+*** Alteração de Condições Gerais***
+Atualizámos as Condições Gerais com entrada em vigor a 01/01/2027.
+Nesta versão foram alteradas as cláusulas 2.ª, 6.ª e 7.ª da respetiva
+Secção D (Condições Gerais de Utilização dos Meios de Comunicação à
+Distância). Consulte as alterações em anexo e o documento atualizado
+no Site do ActivoBank. Caso não concorde, pode resolver de imediato e
+sem custos o contrato, comunicando ao Banco a sua vontade através dos
+meios contratualmente previstos, continuando a ser responsável pelo
+pagamento de todas as quantias decorrentes da utilização da conta.
+***Alteração de Condições Gerais de Cartões***
+Atualizámos as Condições Gerais de Utilização de Cartões de Débito, de
+Crédito, Pré-Pagos e Instrumentos de Pagamento para Transações Seguras
+baseadas em Cartão (abreviadamente, Condições Gerais de Cartões) com
+entrada em vigor a 01/01/2027. Nesta versão foram alteradas as
+cláusulas 39. e 40. da Secção XII e o Preçário da secção 2 - Operações
+com Cartões. Consulte as alterações em anexo e o documento atualizado
+no Site do ActivoBank. Caso não concorde, pode resolver de imediato e
+sem custos o contrato, comunicando ao Banco a sua vontade através dos
+meios contratualmente previstos, continuando a ser responsável pelo
+pagamento de todas as quantias decorrentes da utilização do cartão.
+
+Banco ActivoBank, S.A. - Sede: Rua Augusta, 84, 1100-053 Lisboa
+Capital Social: Euros 217.600.000 - Matric. na Cons. do Registo Com. de Lisboa, com o nº único de matrícula e de identificação fiscal 500 734 305
+26/10/30 EXT. N. 2026/011 DEPOSITO A ORDEM: 00000000001 PAG: 00002
+RESUMO DAS CONTAS
+CONTA SIMPLES 2 056.59
+Nos termos da legislação em vigor confirmamos que os depósitos contratados são garantidos pelo Fundo de
+Garantia de Depósito nos termos constantes do Formulário de Informação do Depositante (FID)
+disponibilizado anualmente a todos os depositantes e permanentemente acessível para consulta em qualquer
+Ponto Activo e em www.activobank.pt.
+Nos termos da legislação em vigor, há entidades e/ou depósitos que estão excluídos da garantia de
+reembolso de depósitos, sendo esses depositantes informados individualmente da exclusão no momento da
+celebração do contrato de abertura de conta ou no momento em que o Banco tome conhecimento das situações
+que motivaram essa exclusão.
+Poderá obter mais informações em www.fgd.pt.
+CONTA SIMPLES N. 00000000001 MOEDA: EUR
+EXTRATO DE 2026/10/01 A 2026/10/30
+DATA
+LANC.
+DATA
+VALOR DESCRITIVO DEBITO CREDITO SALDO
+SALDO INICIAL 2 224.79
+10.02 10.02 COMPRA 0000 STRIPE IRELAND 49.99 2 174.80
+10.02 10.02 CRED. 0000 STRIPE IRELAND 49.99 2 224.79
+10.05 10.05 COMPRA 0000 BAO S - TAIWANESE BU PO CONTACTLESS 7.00 2 217.79
+10.06 10.06 COMPRA 0000 UBER EATS PENDING AMSTERDAM NL 16.14 2 201.65
+10.06 10.06 COMPRA 0000 MBWAY - FATURAS 1600-404 LISBOA 12.00 2 189.65
+10.07 10.07 LEV ATM 0000 CGD Braga C Com Nova Arc 40.00 2 149.65
+10.09 10.09 COMPRA 0000 EST SERVICO REPSOL E0341 4700 BRAGA 8.00 2 141.65
+10.09 10.09 COMPRA 0000 IKEA BRAGA IKEA FOOD BR CONTACTLESS 13.70 2 127.95
+10.09 10.09 TRF MB WAY P/ PEDRO SANTOS LIMA 6.45 2 121.50
+10.12 10.12 COMPRA 0000 HOSPIT LUZ GUIMARAESGUIMARAES 17.50 2 104.00
+10.13 10.13 COMPRA 0000 PANIPROGRESSO LDA RENDU CONTACTLESS 6.30 2 097.70
+10.13 10.13 COMPRA 0000 RAY-BAN.COM 866-472-9226 137.00 1 960.70
+10.13 10.13 COMPRA 0000 GOG Sp. Z o.o Warsaw 2.49 1 958.21
+10.14 10.14 TRF MB WAY P/ RUI COSTA MENDES 72.50 1 885.71
+10.19 10.19 COMPRA 0000 ALTICE PAY, S.A LISBOA 22.00 1 863.71
+10.20 10.20 COMPRA 0000 PECADO DA SE BRAGA PT CONTACTLESS 30.00 1 833.71
+10.20 10.20 COMPRA 0000 TICKET LINE LISBOA 96.64 1 737.07
+10.26 10.26 COMPRA 0000 ORNIMUNDO BRAGA 5.19 1 731.88
+10.26 10.26 TRF. P/O ANA MARIA SOUSA COSTA 2 027.00 3 758.88
+10.26 10.26 TRF P/ Ana Maria Sousa Costa 1 500.00 2 258.88
+10.26 10.26 TRF MB WAY P/ INES ROCHA DIAS 50.00 2 208.88
+10.27 10.27 COMPRA 0000 MANTEIGARIA BRAGA PT CONTACTLESS 3.00 2 205.88
+10.27 10.27 COMPRA 0000 MANTEIGARIA BRAGA PT CONTACTLESS 7.30 2 198.58
+10.27 10.27 COMPRA 0000 ISTORE NOVA ARCADA BRAG CONTACTLESS 119.00 2 079.58
+10.30 10.30 COMPRA 0000 EST SERVICO ILIDIO MOTA, LDA. PALME 7.99 2 071.59
+10.30 10.30 COMPRA 0000 HOSPIT LUZ GUIMARAES GU CONTACTLESS 15.00 2 056.59
+SALDO FINAL 2 056.59
+SALDO DISPONIVEL 2 056.59
+ULTRAPASSAGEM DE CREDITO TAXA ANUAL NOMINAL: 15.00000%

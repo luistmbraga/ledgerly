@@ -27,6 +27,9 @@ describe("parseBankAmount", () => {
   it.each([
     ["-1,234.56", -123_456],
     ["1234.5", 123_450],
+    ["2 027.00", 202_700],
+    ["1 960.70", 196_070],
+    ["-12 345.00", -1_234_500],
   ])("reads EN %s", (raw, cents) => {
     expect(parseBankAmount(raw, en)).toEqual({ ok: true, cents });
   });

@@ -21,7 +21,10 @@ export type ParsedStatement = {
   currency: string;
   periodFrom: string | null;
   periodTo: string | null;
+  openingBalanceCents: number | null;
   closingBalanceCents: number | null;
+  /** Things the preview should tell the user about how the statement was read. */
+  notes: string[];
   /** Account holder as printed; used in memory to flag own-account transfers, never stored. */
   holderName: string | null;
   rows: StatementRow[];

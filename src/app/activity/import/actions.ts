@@ -53,6 +53,7 @@ export type ImportPreview = {
   periodTo: string | null;
   closingBalanceCents: number | null;
   previousImports: string[];
+  notes: string[];
   reconciliation: Reconciliation;
   assetId: number | null;
   assetName: string | null;
@@ -190,7 +191,12 @@ export async function previewImportAction(_prev: PreviewState, formData: FormDat
       periodTo: statement.periodTo,
       closingBalanceCents: statement.closingBalanceCents,
       previousImports: findBatchesByFileHash(analysis.sha256).map((b) => b.createdAt.slice(0, 10)),
-      reconciliation: reconcileRunningBalance(statement.rows, statement.closingBalanceCents),
+      reconciliation: reconcileRunningBalance(
+        statement.rows,
+        statement.closingBalanceCents,
+        statement.openingBalanceCents,
+      ),
+      notes: statement.notes,
       assetId: analysis.assetId,
       assetName: analysis.assetName,
       linkMode: analysis.linkMode,
