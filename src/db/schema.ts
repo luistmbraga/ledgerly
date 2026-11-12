@@ -110,6 +110,44 @@ export const categories = sqliteTable(
   ],
 );
 
+export const recurringTemplates = sqliteTable(
+  "recurring_templates",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    kind: text("kind").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    amountVaries: integer("amount_varies", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    matchText: text("match_text"),
+    categoryId: integer("category_id").references(() => categories.id, {
+      onDelete: "set null",
+    }),
+    assetId: integer("asset_id").references(() => assets.id, {
+      onDelete: "set null",
+    }),
+    linkCash: integer("link_cash", { mode: "boolean" }).notNull().default(false),
+    note: text("note"),
+    cadence: text("cadence").notNull(),
+    anchorOn: text("anchor_on").notNull(),
+    endOn: text("end_on"),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  () => [
+    check(
+      "recurring_templates_kind_ck",
+      sql`\`kind\` IN ('expense', 'income')`,
+    ),
+    check(
+      "recurring_templates_cadence_ck",
+      sql`\`cadence\` IN ('monthly', 'yearly', 'weekly')`,
+    ),
+    check("recurring_templates_amount_ck", sql`\`amount_cents\` > 0`),
+  ],
+);
+
 export const expenses = sqliteTable(
   "expenses",
   {
@@ -124,6 +162,11 @@ export const expenses = sqliteTable(
       () => valueSnapshots.id,
       { onDelete: "set null" },
     ),
+    recurringTemplateId: integer("recurring_template_id").references(
+      () => recurringTemplates.id,
+      { onDelete: "set null" },
+    ),
+    recurringPeriod: text("recurring_period"),
     note: text("note"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -132,6 +175,10 @@ export const expenses = sqliteTable(
     index("expenses_occurred_on_idx").on(table.occurredOn),
     index("expenses_category_id_idx").on(table.categoryId),
     index("expenses_asset_id_idx").on(table.assetId),
+    uniqueIndex("expenses_recurring_period_idx").on(
+      table.recurringTemplateId,
+      table.recurringPeriod,
+    ),
   ],
 );
 
@@ -149,6 +196,11 @@ export const incomes = sqliteTable(
       () => valueSnapshots.id,
       { onDelete: "set null" },
     ),
+    recurringTemplateId: integer("recurring_template_id").references(
+      () => recurringTemplates.id,
+      { onDelete: "set null" },
+    ),
+    recurringPeriod: text("recurring_period"),
     note: text("note"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -157,6 +209,10 @@ export const incomes = sqliteTable(
     index("incomes_occurred_on_idx").on(table.occurredOn),
     index("incomes_category_id_idx").on(table.categoryId),
     index("incomes_asset_id_idx").on(table.assetId),
+    uniqueIndex("incomes_recurring_period_idx").on(
+      table.recurringTemplateId,
+      table.recurringPeriod,
+    ),
   ],
 );
 
@@ -219,6 +275,7 @@ export type ValueSnapshotRow = typeof valueSnapshots.$inferSelect;
 export type CategoryRow = typeof categories.$inferSelect;
 export type ExpenseRow = typeof expenses.$inferSelect;
 export type IncomeRow = typeof incomes.$inferSelect;
+export type RecurringTemplateRow = typeof recurringTemplates.$inferSelect;
 export type GoalRow = typeof goals.$inferSelect;
 export type PersonalityAnswerRow = typeof personalityAnswers.$inferSelect;
 export type InvestorProfileRow = typeof investorProfiles.$inferSelect;

@@ -1,10 +1,12 @@
 import { desc, eq } from "drizzle-orm";
+import type { RecurringLink } from "@/domain/recurring";
 import { isValidIsoDate } from "./snapshots";
 import { getCategory } from "./categories";
 import {
   createCashLink,
   deleteCashLink,
   updateCashLink,
+  type Tx,
 } from "./cash-link";
 import { db } from "../client";
 import { assets, categories, incomes, type IncomeRow } from "../schema";
@@ -58,6 +60,8 @@ export function listIncomes(): IncomeWithCategory[] {
       categoryId: incomes.categoryId,
       assetId: incomes.assetId,
       linkedSnapshotId: incomes.linkedSnapshotId,
+      recurringTemplateId: incomes.recurringTemplateId,
+      recurringPeriod: incomes.recurringPeriod,
       note: incomes.note,
       createdAt: incomes.createdAt,
       updatedAt: incomes.updatedAt,
@@ -75,31 +79,40 @@ export function getIncome(id: number): IncomeRecord | undefined {
   return db.select().from(incomes).where(eq(incomes.id, id)).get();
 }
 
-export function createIncome(input: IncomeInput): IncomeRecord {
+/** Validate, apply the cash link and insert inside the caller's transaction. */
+export function insertIncome(
+  tx: Tx,
+  input: IncomeInput,
+  recurring?: RecurringLink,
+): IncomeRecord {
   const value = assertIncomeInput(input);
   const now = new Date().toISOString();
-  return db.transaction((tx) => {
-    const link = createCashLink(tx, {
-      assetId: value.assetId,
-      occurredOn: value.occurredOn,
-      amountCents: value.amountCents,
-      direction: "income",
-    });
-    return tx
-      .insert(incomes)
-      .values({
-        amountCents: value.amountCents,
-        occurredOn: value.occurredOn,
-        categoryId: value.categoryId,
-        assetId: link.assetId,
-        linkedSnapshotId: link.linkedSnapshotId,
-        note: value.note,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning()
-      .get();
+  const link = createCashLink(tx, {
+    assetId: value.assetId,
+    occurredOn: value.occurredOn,
+    amountCents: value.amountCents,
+    direction: "income",
   });
+  return tx
+    .insert(incomes)
+    .values({
+      amountCents: value.amountCents,
+      occurredOn: value.occurredOn,
+      categoryId: value.categoryId,
+      assetId: link.assetId,
+      linkedSnapshotId: link.linkedSnapshotId,
+      recurringTemplateId: recurring?.templateId ?? null,
+      recurringPeriod: recurring?.period ?? null,
+      note: value.note,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning()
+    .get();
+}
+
+export function createIncome(input: IncomeInput): IncomeRecord {
+  return db.transaction((tx) => insertIncome(tx, input));
 }
 
 export function updateIncome(

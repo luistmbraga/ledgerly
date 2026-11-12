@@ -99,6 +99,13 @@
       "when": 1794100000000,
       "tag": "0013_category_budget",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1794486153981,
+      "tag": "0014_recurring_templates",
+      "breakpoints": true
     }
   ]
 }

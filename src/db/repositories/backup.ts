@@ -10,6 +10,7 @@ import {
   goals,
   personalityAnswers,
   investorProfiles,
+  recurringTemplates,
   settings,
 } from "../schema";
 
@@ -66,6 +67,7 @@ const CategorySchema = z.object({
   name: z.string(),
   kind: z.string(),
   isEssential: z.boolean(),
+  budgetMonthlyCents: z.number().int().nullable().default(null),
   sortOrder: z.number().int(),
   createdAt: z.string(),
 });
@@ -77,6 +79,8 @@ const ExpenseSchema = z.object({
   categoryId: z.number().int().nullable(),
   assetId: z.number().int().nullable(),
   linkedSnapshotId: z.number().int().nullable(),
+  recurringTemplateId: z.number().int().nullable().default(null),
+  recurringPeriod: z.string().nullable().default(null),
   note: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -89,7 +93,27 @@ const IncomeSchema = z.object({
   categoryId: z.number().int().nullable(),
   assetId: z.number().int().nullable(),
   linkedSnapshotId: z.number().int().nullable(),
+  recurringTemplateId: z.number().int().nullable().default(null),
+  recurringPeriod: z.string().nullable().default(null),
   note: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+const RecurringTemplateSchema = z.object({
+  id: z.number().int(),
+  kind: z.enum(["expense", "income"]),
+  amountCents: z.number().int(),
+  amountVaries: z.boolean(),
+  matchText: z.string().nullable(),
+  categoryId: z.number().int().nullable(),
+  assetId: z.number().int().nullable(),
+  linkCash: z.boolean(),
+  note: z.string().nullable(),
+  cadence: z.enum(["monthly", "yearly", "weekly"]),
+  anchorOn: z.string(),
+  endOn: z.string().nullable(),
+  active: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -131,6 +155,7 @@ export const BackupSchema = z.object({
   liabilities: z.array(LiabilitySchema),
   value_snapshots: z.array(ValueSnapshotSchema),
   categories: z.array(CategorySchema),
+  recurring_templates: z.array(RecurringTemplateSchema).default([]),
   expenses: z.array(ExpenseSchema),
   incomes: z.array(IncomeSchema),
   goals: z.array(GoalSchema),
@@ -153,6 +178,11 @@ export function exportDatabase(): BackupData {
     liabilities: db.select().from(liabilities).all(),
     value_snapshots: db.select().from(valueSnapshots).all(),
     categories: db.select().from(categories).all(),
+    recurring_templates: db
+      .select()
+      .from(recurringTemplates)
+      .all()
+      .map((row) => RecurringTemplateSchema.parse(row)),
     expenses: db.select().from(expenses).all(),
     incomes: db.select().from(incomes).all(),
     goals: db.select().from(goals).all(),
@@ -186,6 +216,7 @@ export function importDatabase(raw: unknown): ImportResult {
       // Delete in dependency order (deepest references first)
       tx.delete(expenses).run();
       tx.delete(incomes).run();
+      tx.delete(recurringTemplates).run();
       tx.delete(valueSnapshots).run();
       tx.delete(categories).run();
       tx.delete(goals).run();
@@ -218,6 +249,9 @@ export function importDatabase(raw: unknown): ImportResult {
       if (data.liabilities.length > 0) tx.insert(liabilities).values(data.liabilities).run();
       if (data.categories.length > 0) tx.insert(categories).values(data.categories).run();
       if (data.value_snapshots.length > 0) tx.insert(valueSnapshots).values(data.value_snapshots).run();
+      if (data.recurring_templates.length > 0) {
+        tx.insert(recurringTemplates).values(data.recurring_templates).run();
+      }
       if (data.expenses.length > 0) tx.insert(expenses).values(data.expenses).run();
       if (data.incomes.length > 0) tx.insert(incomes).values(data.incomes).run();
       if (data.goals.length > 0) tx.insert(goals).values(data.goals).run();

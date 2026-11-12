@@ -14,7 +14,7 @@ import {
 } from "../schema";
 import { isValidIsoDate } from "./snapshots";
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 function invalid(message: string): never {
   const error = new Error(message);

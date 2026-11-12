@@ -3,7 +3,8 @@ import { todayUtc } from "@/lib/dates";
 import { listAssets } from "@/db/repositories/assets";
 import { listCategories } from "@/db/repositories/categories";
 import { listExpenses, getMtdSpendByCategoryId, type ExpenseWithCategory } from "@/db/repositories/expenses";
-import { listIncomes, type IncomeWithCategory } from "@/db/repositories/incomes";
+import { listIncomes } from "@/db/repositories/incomes";
+import { listDue } from "@/db/repositories/recurring";
 import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
 import { selectLatestSnapshot } from "@/domain/net-worth";
 import { centsToDecimalInput, formatMoney } from "@/lib/money";
@@ -24,6 +25,7 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { Flash } from "@/components/flash";
 import { JournalForm } from "./journal-form";
 import { QuickEntry } from "./quick-entry";
+import { RecurringTab } from "./recurring-tab";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,6 +33,7 @@ export const runtime = "nodejs";
 const TABS = [
   { id: "expenses", label: "Expenses" },
   { id: "income", label: "Income" },
+  { id: "recurring", label: "Recurring" },
 ] as const;
 
 type Tab = (typeof TABS)[number]["id"];
@@ -47,10 +50,27 @@ const SAVED: Record<string, string> = {
   "category-created": "Category added.",
   "category-updated": "Category updated.",
   "category-deleted": "Category deleted.",
+  "recurring-created": "Recurring entry added.",
+  "recurring-updated": "Recurring entry updated.",
+  "recurring-deleted": "Recurring entry deleted. Entries already posted were kept.",
+  "recurring-paused": "Recurring entry paused.",
+  "recurring-resumed": "Recurring entry resumed.",
 };
 
+function countParam(value: string | undefined): number {
+  return value && /^\d{1,4}$/.test(value) ? Number(value) : 0;
+}
+
+function postedMessage(posted: number, unlinked: number): string {
+  if (posted === 0) return "Nothing new to post. Those periods were already posted.";
+  const base = posted === 1 ? "1 recurring entry posted." : `${posted} recurring entries posted.`;
+  if (unlinked === 0) return base;
+  const which = unlinked === 1 ? "1 was" : `${unlinked} were`;
+  return `${base} ${which} posted without the cash link because the account already has a newer balance.`;
+}
+
 function parseTab(value: string | undefined): Tab {
-  if (value === "income") return value;
+  if (value === "income" || value === "recurring") return value;
   return "expenses";
 }
 
@@ -69,13 +89,22 @@ export default async function ActivityPage({
     error?: string;
     saved?: string;
     edit?: string;
+    posted?: string;
+    unlinked?: string;
   }>;
 }) {
   const params = await searchParams;
   const tab = parseTab(params.tab);
   const editId = parseEditId(params.edit);
   const currency = getDisplayCurrency();
-  const saved = params.saved ? SAVED[params.saved] : undefined;
+  const today = todayUtc();
+  const due = listDue(today);
+  const saved =
+    params.saved === "recurring-posted"
+      ? postedMessage(countParam(params.posted), countParam(params.unlinked))
+      : params.saved
+        ? SAVED[params.saved]
+        : undefined;
   const hasCategories = listCategories("expense").length > 0 || listCategories("income").length > 0;
 
   return (
@@ -91,6 +120,25 @@ export default async function ActivityPage({
       <div className="mt-6">
         <QuickEntry currency={currency} hasCategories={hasCategories} />
       </div>
+
+      {due.length > 0 && tab !== "recurring" ? (
+        <p
+          role="status"
+          className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900"
+        >
+          <span>
+            {due.length === 1
+              ? "1 recurring entry is due."
+              : `${due.length} recurring entries are due.`}
+          </span>
+          <Link
+            href="/activity?tab=recurring"
+            className="font-medium underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
+          >
+            Review and post
+          </Link>
+        </p>
+      ) : null}
 
       <nav aria-label="Activity" className="mt-4 flex gap-2 border-b border-stone-200">
         {TABS.map((item) => {
@@ -119,6 +167,9 @@ export default async function ActivityPage({
         ) : null}
         {tab === "income" ? (
           <IncomeTab currency={currency} editId={editId} />
+        ) : null}
+        {tab === "recurring" ? (
+          <RecurringTab currency={currency} editId={editId} today={today} due={due} />
         ) : null}
       </div>
     </div>
