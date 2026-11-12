@@ -10,12 +10,14 @@ import {
   ImportRowError,
   confirmImport,
   findBatchesByFileHash,
+  frozenEntryKeys,
   getImportContext,
   undoImport,
 } from "@/db/repositories/imports";
 import { getLatestSnapshot } from "@/db/repositories/snapshots";
 import { flagCandidates, type ImportFlag } from "@/domain/import-dedupe";
 import { isLinkMode, planCashLinks, type LinkMode, type LinkPlan } from "@/domain/import-links";
+import { buildRecurringReconciles, resolveRecurringUpdates } from "@/domain/import-recurring";
 import {
   buildCategorySuggester,
   toCandidates,
@@ -42,6 +44,12 @@ export type PreviewRow = {
   issue: string | null;
   unlinked: boolean;
   included: boolean;
+  /** Set when this row confirms an entry a recurring template posted with a different amount or date. */
+  recurringUpdate: {
+    previousAmountCents: number;
+    previousOccurredOn: string;
+    frozenReason: string | null;
+  } | null;
 };
 
 export type ImportPreview = {
@@ -167,6 +175,23 @@ export async function previewImportAction(_prev: PreviewState, formData: FormDat
     asOf: todayUtc(),
   });
 
+  const reconciles = buildRecurringReconciles(candidates, flags);
+  const frozen = frozenEntryKeys(reconciles);
+  const offers = new Map(
+    reconciles
+      .filter((r) => r.differs)
+      .map((r) => [
+        r.position,
+        {
+          previousAmountCents: r.previousAmountCents,
+          previousOccurredOn: r.previousOccurredOn,
+          frozenReason: frozen.has(`${r.kind}:${r.entryId}`)
+            ? "This entry's cash balance was followed by a newer balance; unlink it in Activity to update it."
+            : null,
+        },
+      ]),
+  );
+
   const latest = analysis.assetId === null ? null : getLatestSnapshot(analysis.assetId);
   const plan = planCashLinks({
     mode: analysis.linkMode,
@@ -215,6 +240,7 @@ export async function previewImportAction(_prev: PreviewState, formData: FormDat
           issue: c.issue,
           unlinked: plan.unlinked.has(c.position),
           included: c.issue === null && !flag,
+          recurringUpdate: offers.get(c.position) ?? null,
         };
       }),
     },
@@ -231,18 +257,35 @@ const SelectionSchema = z
   )
   .max(5_000);
 
+const UpdatesSchema = z.array(z.number().int().positive()).max(5_000);
+
 export async function confirmImportAction(formData: FormData): Promise<ConfirmResult> {
   let selections: z.infer<typeof SelectionSchema>;
+  let updatePositions: number[];
   try {
     selections = SelectionSchema.parse(JSON.parse(String(formData.get("selections") ?? "[]")));
+    updatePositions = UpdatesSchema.parse(JSON.parse(String(formData.get("updates") ?? "[]")));
   } catch {
     return { ok: false, error: "The selection could not be read. Reload and try again.", position: null };
   }
-  if (selections.length === 0) return { ok: false, error: "Select at least one row to import.", position: null };
+  if (selections.length === 0 && updatePositions.length === 0) {
+    return { ok: false, error: "Select at least one row to import.", position: null };
+  }
 
   const analysis = await analyze(formData);
   if (!analysis.ok) return { ...analysis, position: null };
   const byPosition = new Map(analysis.candidates.map((c) => [c.position, c]));
+  const [from, to] = datesOf(analysis.candidates);
+  const context = getImportContext(from, to);
+  const flags = flagCandidates({
+    candidates: analysis.candidates,
+    existing: context.existing,
+    templates: context.templates,
+    holderName: analysis.statement.holderName,
+  });
+  const resolved = resolveRecurringUpdates(buildRecurringReconciles(analysis.candidates, flags), updatePositions);
+  if (!resolved.ok) return { ...resolved, position: null };
+  const selected = new Set(selections.map((s) => s.position));
 
   const rows = [];
   for (const selection of selections) {
@@ -279,6 +322,8 @@ export async function confirmImportAction(formData: FormData): Promise<ConfirmRe
       assetId: analysis.assetId,
       linkMode: analysis.linkMode,
       rows,
+      // A row the user chose to import anyway doesn't also confirm the posted entry.
+      recurring: resolved.items.filter((item) => !selected.has(item.position)),
     });
   } catch (error) {
     return {
@@ -292,6 +337,7 @@ export async function confirmImportAction(formData: FormData): Promise<ConfirmRe
   const params = new URLSearchParams({
     saved: "imported",
     rows: String(result.batch.rowCount),
+    updated: String(result.updatedCount),
     unlinked: String(result.unlinkedCount),
     closing: result.closing,
   });

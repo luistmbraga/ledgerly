@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, isNotNull, lte } from "drizzle-orm";
 import type { ExistingJournalRow, TemplateMatcher } from "@/domain/import-dedupe";
+import type { ResolvedReconcile } from "@/domain/import-recurring";
 import type { LinkMode } from "@/domain/import-links";
 import type { CategoryHistoryRow, ImportKind } from "@/domain/import-normalize";
 import { selectLatestSnapshot } from "@/domain/net-worth";
@@ -9,6 +10,7 @@ import { db } from "../client";
 import {
   assets,
   expenses,
+  importBatchUpdates,
   importBatches,
   incomes,
   recurringTemplates,
@@ -16,8 +18,8 @@ import {
   type ImportBatchRow,
 } from "../schema";
 import { deleteCashLink, type Tx } from "./cash-link";
-import { insertExpense } from "./expenses";
-import { insertIncome } from "./incomes";
+import { insertExpense, updateExpenseTx } from "./expenses";
+import { insertIncome, updateIncomeTx } from "./incomes";
 
 export type ImportRowInput = {
   position: number;
@@ -39,10 +41,13 @@ export type ConfirmImportInput = {
   assetId: number | null;
   linkMode: LinkMode;
   rows: ImportRowInput[];
+  /** Entries posted by recurring templates that this statement confirms. */
+  recurring?: ResolvedReconcile[];
 };
 
 export type ConfirmImportResult = {
   batch: ImportBatchRow;
+  updatedCount: number;
   unlinkedCount: number;
   closing: "written" | "skipped" | "none";
 };
@@ -155,8 +160,8 @@ function latestAssetSnapshot(tx: Tx, assetId: number) {
   );
 }
 
-function assertRows(rows: ImportRowInput[]) {
-  if (rows.length === 0) invalid("Select at least one row to import.");
+function assertRows(rows: ImportRowInput[], updates: number) {
+  if (rows.length === 0 && updates === 0) invalid("Select at least one row to import.");
   for (const row of rows) {
     if (!isValidIsoDate(row.occurredOn)) invalid("This row has an invalid date.", row.position);
     if (!Number.isSafeInteger(row.amountCents) || row.amountCents <= 0) {
@@ -171,7 +176,8 @@ function assertRows(rows: ImportRowInput[]) {
  * transaction. Any failing row aborts the whole import and is named in the error.
  */
 export function confirmImport(input: ConfirmImportInput): ConfirmImportResult {
-  assertRows(input.rows);
+  const recurring = input.recurring ?? [];
+  assertRows(input.rows, recurring.filter((r) => r.update).length);
   const linkMode: LinkMode = input.assetId === null ? "none" : input.linkMode;
 
   return db.transaction((tx) => {
@@ -198,6 +204,42 @@ export function confirmImport(input: ConfirmImportInput): ConfirmImportResult {
       })
       .returning()
       .get();
+
+    // Before inserts, so per-row cash links added below can't freeze these entries first.
+    let updatedCount = 0;
+    for (const item of recurring) {
+      const table = item.kind === "expense" ? expenses : incomes;
+      const entry = tx.select().from(table).where(eq(table.id, item.entryId)).get();
+      if (!entry) invalid("The matched recurring entry no longer exists. Preview the file again.", item.position);
+      tx.insert(importBatchUpdates)
+        .values({
+          batchId: batch.id,
+          kind: item.kind,
+          entryId: entry.id,
+          previousAmountCents: entry.amountCents,
+          previousOccurredOn: entry.occurredOn,
+          previousFingerprint: entry.importFingerprint,
+        })
+        .run();
+      if (!item.update) {
+        tx.update(table).set({ importFingerprint: item.fingerprint }).where(eq(table.id, entry.id)).run();
+        continue;
+      }
+      const change = {
+        amountCents: item.amountCents,
+        occurredOn: item.occurredOn,
+        categoryId: entry.categoryId,
+        assetId: entry.assetId,
+        note: entry.note,
+      };
+      try {
+        if (item.kind === "expense") updateExpenseTx(tx, entry.id, change, { importFingerprint: item.fingerprint });
+        else updateIncomeTx(tx, entry.id, change, { importFingerprint: item.fingerprint });
+      } catch (error) {
+        invalid(error instanceof Error ? error.message : "The posted entry could not be updated.", item.position);
+      }
+      updatedCount += 1;
+    }
 
     const ordered = [...input.rows].sort(
       (a, b) => a.occurredOn.localeCompare(b.occurredOn) || a.position - b.position,
@@ -260,6 +302,7 @@ export function confirmImport(input: ConfirmImportInput): ConfirmImportResult {
 
     return {
       batch: tx.select().from(importBatches).where(eq(importBatches.id, batch.id)).get()!,
+      updatedCount,
       unlinkedCount,
       closing,
     };
@@ -301,6 +344,31 @@ export function undoImport(batchId: number): UndoImportResult {
         tx.delete(row.table).where(eq(row.table.id, row.id)).run();
       }
 
+      // Restore entries this import updated, newest record first, after its own rows are gone.
+      const updates = tx
+        .select()
+        .from(importBatchUpdates)
+        .where(eq(importBatchUpdates.batchId, batchId))
+        .orderBy(desc(importBatchUpdates.id))
+        .all();
+      for (const update of updates) {
+        const table = update.kind === "expense" ? expenses : incomes;
+        const entry = tx.select().from(table).where(eq(table.id, update.entryId)).get();
+        if (!entry) continue;
+        const previous = {
+          amountCents: update.previousAmountCents,
+          occurredOn: update.previousOccurredOn,
+          categoryId: entry.categoryId,
+          assetId: entry.assetId,
+          note: entry.note,
+        };
+        const links = update.previousFingerprint === null
+          ? { clearFingerprint: true }
+          : { importFingerprint: update.previousFingerprint };
+        if (update.kind === "expense") updateExpenseTx(tx, entry.id, previous, links);
+        else updateIncomeTx(tx, entry.id, previous, links);
+      }
+
       if (batch.closingSnapshotId !== null) {
         const referenced =
           tx.select({ id: expenses.id }).from(expenses)
@@ -319,4 +387,19 @@ export function undoImport(batchId: number): UndoImportResult {
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not undo the import." };
   }
+}
+
+/** Matched entries whose cash link has a newer balance, so amount and date can't change. */
+export function frozenEntryKeys(items: ReadonlyArray<{ kind: ImportKind; entryId: number }>): Set<string> {
+  const frozen = new Set<string>();
+  for (const item of items) {
+    const table = item.kind === "expense" ? expenses : incomes;
+    const entry = db.select().from(table).where(eq(table.id, item.entryId)).get();
+    if (!entry || entry.linkedSnapshotId === null || entry.assetId === null) continue;
+    const latest = selectLatestSnapshot(
+      db.select().from(valueSnapshots).where(eq(valueSnapshots.assetId, entry.assetId)).all(),
+    );
+    if (latest?.id !== entry.linkedSnapshotId) frozen.add(`${item.kind}:${item.entryId}`);
+  }
+  return frozen;
 }

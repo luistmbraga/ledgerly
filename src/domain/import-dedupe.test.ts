@@ -242,3 +242,52 @@ describe("buildCategorySuggester", () => {
     expect(ask("expense", "TALHO SANTIAGO")).toBeNull();
   });
 });
+
+describe("flagCandidates matching recurring entries near a month boundary", () => {
+  const template = { id: 9, kind: "expense" as const, cadence: "monthly" as const, matchText: "ENDESA" };
+  const bank = (occurredOn: string) =>
+    candidate(1, {
+      occurredOn,
+      amountCents: 4_389,
+      description: "ENDESA ENERGIA",
+      normalizedDescription: "endesa energia",
+      fingerprint: `${occurredOn}|1`,
+    });
+  const posted = (id: number, occurredOn: string) =>
+    row({ id, amountCents: 4_500, occurredOn, recurringTemplateId: 9, recurringPeriod: occurredOn.slice(0, 7) });
+
+  it("matches a template entry within 5 days in another month, with its amount and date", () => {
+    const flags = flagCandidates({
+      candidates: [bank("2026-12-01")],
+      existing: [posted(3, "2026-11-30")],
+      templates: [template],
+      holderName: null,
+    });
+    expect(flags.get(1)).toMatchObject({
+      type: "likely_recurring",
+      matchId: 3,
+      matchAmountCents: 4_500,
+      matchOccurredOn: "2026-11-30",
+    });
+  });
+
+  it("does not match 6 days away across a month boundary", () => {
+    const flags = flagCandidates({
+      candidates: [bank("2026-12-06")],
+      existing: [posted(3, "2026-11-30")],
+      templates: [template],
+      holderName: null,
+    });
+    expect(flags.size).toBe(0);
+  });
+
+  it("prefers the closest entry", () => {
+    const flags = flagCandidates({
+      candidates: [bank("2026-12-01")],
+      existing: [posted(3, "2026-12-20"), posted(4, "2026-11-29")],
+      templates: [template],
+      holderName: null,
+    });
+    expect(flags.get(1)).toMatchObject({ type: "likely_recurring", matchId: 4 });
+  });
+});

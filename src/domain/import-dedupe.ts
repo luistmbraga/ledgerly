@@ -4,7 +4,13 @@ import { periodKey, type Cadence } from "./recurring";
 
 export type ImportFlag =
   | { type: "exact"; reason: string; matchId: number }
-  | { type: "likely_recurring"; reason: string; matchId: number }
+  | {
+      type: "likely_recurring";
+      reason: string;
+      matchId: number;
+      matchAmountCents: number;
+      matchOccurredOn: string;
+    }
   | { type: "likely_manual"; reason: string; matchId: number }
   | { type: "own_transfer"; reason: string }
   | { type: "offsetting_pair"; reason: string; pairPosition: number };
@@ -28,6 +34,8 @@ export type TemplateMatcher = {
 };
 
 export const LIKELY_MANUAL_DAYS = 3;
+/** A template-posted entry this close to a bank row matches even across a period boundary. */
+export const RECURRING_NEARBY_DAYS = 5;
 export const RECURRING_AMOUNT_TOLERANCE = 0.2;
 const MIN_HOLDER_PREFIX = 6;
 
@@ -86,10 +94,12 @@ export function flagCandidates(input: {
 
   for (const candidate of usable) {
     if (flags.has(candidate.position)) continue;
-    const match = input.existing.find((row) => {
+    const eligible = input.existing.filter((row) => {
       if (used.has(key(row)) || row.kind !== candidate.kind || row.recurringTemplateId === null) return false;
       const template = templates.get(row.recurringTemplateId);
-      if (!template || row.recurringPeriod !== periodKey(candidate.occurredOn, template.cadence)) return false;
+      if (!template) return false;
+      const samePeriod = row.recurringPeriod === periodKey(candidate.occurredOn, template.cadence);
+      if (!samePeriod && dayDistance(row.occurredOn, candidate.occurredOn) > RECURRING_NEARBY_DAYS) return false;
       if (template.matchText) {
         return candidate.normalizedDescription.includes(normalizeDescription(template.matchText));
       }
@@ -98,12 +108,19 @@ export function flagCandidates(input: {
         RECURRING_AMOUNT_TOLERANCE * row.amountCents
       );
     });
+    const match = eligible.sort(
+      (a, b) =>
+        dayDistance(a.occurredOn, candidate.occurredOn) - dayDistance(b.occurredOn, candidate.occurredOn) ||
+        a.id - b.id,
+    )[0];
     if (match) {
       used.add(key(match));
       flags.set(candidate.position, {
         type: "likely_recurring",
         reason: `Probably already posted by a recurring entry (${rowLabel(match)}).`,
         matchId: match.id,
+        matchAmountCents: match.amountCents,
+        matchOccurredOn: match.occurredOn,
       });
     }
   }

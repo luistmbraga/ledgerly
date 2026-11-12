@@ -232,6 +232,14 @@ function PreviewPanel({
         ]),
       ),
   );
+  const [updates, setUpdates] = useState<Set<number>>(
+    () =>
+      new Set(
+        preview.rows
+          .filter((row) => row.recurringUpdate !== null && row.recurringUpdate.frozenReason === null)
+          .map((row) => row.position),
+      ),
+  );
   const [error, setError] = useState<{ message: string; position: number | null } | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -268,6 +276,10 @@ function PreviewPanel({
     formData.set("assetId", preview.assetId === null ? "" : String(preview.assetId));
     formData.set("linkMode", preview.linkMode);
     formData.set("selections", JSON.stringify(chosen));
+    formData.set(
+      "updates",
+      JSON.stringify([...updates].filter((position) => !selections.get(position)?.included)),
+    );
     setError(null);
     startTransition(async () => {
       const result = await confirmImportAction(formData);
@@ -281,6 +293,7 @@ function PreviewPanel({
   };
 
   const flaggedCount = preview.rows.filter((row) => row.flag !== null).length;
+  const updateCount = [...updates].filter((position) => !selections.get(position)?.included).length;
 
   return (
     <section aria-labelledby="preview-heading" className="flex flex-col gap-4 border-t border-stone-200 pt-6">
@@ -316,6 +329,9 @@ function PreviewPanel({
         <span className="tabular-nums">{formatMoney(totals.inCents, currency)}</span> · out{" "}
         <span className="tabular-nums">{formatMoney(totals.outCents, currency)}</span>
         {flaggedCount > 0 ? ` · ${flaggedCount} flagged and unticked — review them below` : ""}
+        {updateCount > 0
+          ? ` · ${updateCount} posted ${updateCount === 1 ? "entry" : "entries"} will be updated to the bank amount`
+          : ""}
       </p>
 
       <div className="overflow-x-auto">
@@ -401,6 +417,34 @@ function PreviewPanel({
                         <span className="font-medium">{FLAG_LABEL[row.flag.type]}.</span> {row.flag.reason}
                       </span>
                     ) : null}
+                    {row.recurringUpdate ? (
+                      <label className="mt-1 flex items-start gap-1.5 text-stone-800">
+                        <input
+                          type="checkbox"
+                          checked={updates.has(row.position) && !selection.included}
+                          disabled={row.recurringUpdate.frozenReason !== null || selection.included}
+                          onChange={(event) =>
+                            setUpdates((current) => {
+                              const next = new Set(current);
+                              if (event.target.checked) next.add(row.position);
+                              else next.delete(row.position);
+                              return next;
+                            })
+                          }
+                          className="mt-0.5 accent-teal-800"
+                        />
+                        <span>
+                          Update the posted entry to{" "}
+                          {row.amountCents === null ? "" : formatMoney(row.amountCents, currency)}
+                          {row.occurredOn ? ` on ${formatIsoDate(row.occurredOn)}` : ""} (was{" "}
+                          {formatMoney(row.recurringUpdate.previousAmountCents, currency)} on{" "}
+                          {formatIsoDate(row.recurringUpdate.previousOccurredOn)})
+                          {row.recurringUpdate.frozenReason ? (
+                            <span className="block text-stone-600">{row.recurringUpdate.frozenReason}</span>
+                          ) : null}
+                        </span>
+                      </label>
+                    ) : null}
                     {row.unlinked ? (
                       <span className="block text-stone-600">Imported without the cash link (before the latest balance).</span>
                     ) : null}
@@ -423,10 +467,14 @@ function PreviewPanel({
         <button
           type="button"
           onClick={confirm}
-          disabled={pending || totals.count === 0}
+          disabled={pending || (totals.count === 0 && updateCount === 0)}
           className="rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2 disabled:opacity-60"
         >
-          {pending ? "Importing…" : `Import ${totals.count} row${totals.count === 1 ? "" : "s"}`}
+          {pending
+            ? "Importing…"
+            : `Import ${totals.count} row${totals.count === 1 ? "" : "s"}${
+                updateCount > 0 ? ` and update ${updateCount} ${updateCount === 1 ? "entry" : "entries"}` : ""
+              }`}
         </button>
       </div>
     </section>

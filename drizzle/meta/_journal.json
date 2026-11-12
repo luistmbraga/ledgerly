@@ -113,6 +113,13 @@
       "when": 1794493066605,
       "tag": "0015_import_batches",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1794499038896,
+      "tag": "0016_import_batch_updates",
+      "breakpoints": true
     }
   ]
 }

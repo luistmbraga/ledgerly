@@ -19,9 +19,10 @@ const testDb = createTestDb();
 
 vi.mock("@/db/client", () => ({ db: testDb }));
 
-const { confirmImport, undoImport, getImportContext, listImportBatches, findBatchesByFileHash } =
+const { confirmImport, undoImport, getImportContext, listImportBatches, findBatchesByFileHash, frozenEntryKeys } =
   await import("./imports");
-const { listExpenses } = await import("./expenses");
+const { listExpenses, getExpense } = await import("./expenses");
+const { createTemplate, postDue, listDue } = await import("./recurring");
 const { listIncomes } = await import("./incomes");
 const { createAsset } = await import("./assets");
 const { addAssetSnapshot, listSnapshotsForAsset } = await import("./snapshots");
@@ -70,7 +71,9 @@ function seedCashAsset() {
 }
 
 beforeEach(() => {
+  testDb.delete(schema.importBatchUpdates).run();
   testDb.delete(schema.expenses).run();
+  testDb.delete(schema.recurringTemplates).run();
   testDb.delete(schema.incomes).run();
   testDb.delete(schema.importBatches).run();
   testDb.delete(schema.valueSnapshots).run();
@@ -197,5 +200,118 @@ describe("backup round-trip", () => {
     expect(importDatabase(backup)).toEqual({ ok: true });
     expect(listImportBatches()[0]).toMatchObject({ id: batch.id, closingSnapshotId: batch.closingSnapshotId });
     expect(listExpenses()[0]).toMatchObject({ importBatchId: batch.id, importFingerprint: "fp-1" });
+  });
+});
+
+describe("confirming recurring entries", () => {
+  function postEndesa(assetId: number | null = null) {
+    const t = createTemplate({
+      kind: "expense",
+      amountCents: 4_500,
+      amountVaries: true,
+      categoryId: null,
+      assetId,
+      note: "Electricity",
+      matchText: "ENDESA",
+      cadence: "monthly",
+      anchorOn: "2026-10-25",
+      endOn: null,
+    });
+    postDue("2026-10-25", [{ templateId: t.id, period: "2026-10", amountCents: 4_500 }]);
+    return listExpenses()[0];
+  }
+
+  function reconcile(entryId: number, update: boolean) {
+    return {
+      position: 7,
+      kind: "expense" as const,
+      entryId,
+      previousAmountCents: 4_500,
+      previousOccurredOn: "2026-10-25",
+      amountCents: 4_389,
+      occurredOn: "2026-10-27",
+      fingerprint: "2026-10-27|4389|expense|endesa energia|1",
+      differs: true,
+      update,
+    };
+  }
+
+  it("updates the posted entry to the bank amount and date, keeping its template period", () => {
+    const entry = postEndesa();
+    const result = confirmImport(input({ rows: [row(1)], recurring: [reconcile(entry.id, true)] }));
+    expect(result.updatedCount).toBe(1);
+    expect(getExpense(entry.id)).toMatchObject({
+      amountCents: 4_389,
+      occurredOn: "2026-10-27",
+      importFingerprint: "2026-10-27|4389|expense|endesa energia|1",
+      recurringTemplateId: entry.recurringTemplateId,
+      recurringPeriod: "2026-10",
+      note: "Electricity",
+    });
+    expect(listExpenses().filter((e) => e.note === "Electricity")).toHaveLength(1);
+    expect(listDue("2026-10-31")).toEqual([]);
+  });
+
+  it("only stores the fingerprint when the update is unticked", () => {
+    const entry = postEndesa();
+    const result = confirmImport(input({ rows: [row(1)], recurring: [reconcile(entry.id, false)] }));
+    expect(result.updatedCount).toBe(0);
+    expect(getExpense(entry.id)).toMatchObject({ amountCents: 4_500, occurredOn: "2026-10-25" });
+    expect(getExpense(entry.id)?.importFingerprint).toBe("2026-10-27|4389|expense|endesa energia|1");
+  });
+
+  it("allows a confirm that only updates entries", () => {
+    const entry = postEndesa();
+    expect(confirmImport(input({ rows: [], recurring: [reconcile(entry.id, true)] })).updatedCount).toBe(1);
+    expect(() => confirmImport(input({ rows: [], recurring: [reconcile(entry.id, false)] }))).toThrow(/Select at least one/);
+  });
+
+  it("undo restores the posted entry and removes the imported rows", () => {
+    const entry = postEndesa();
+    const { batch } = confirmImport(input({ rows: [row(1)], recurring: [reconcile(entry.id, true)] }));
+    expect(undoImport(batch.id)).toEqual({ ok: true, removed: 1 });
+    expect(getExpense(entry.id)).toMatchObject({ amountCents: 4_500, occurredOn: "2026-10-25", importFingerprint: null });
+    expect(listExpenses()).toHaveLength(1);
+    expect(testDb.select().from(schema.importBatchUpdates).all()).toHaveLength(0);
+  });
+
+  it("refuses to update a frozen cash-linked entry and writes nothing", () => {
+    const asset = seedCashAsset();
+    addAssetSnapshot(asset.id, { recordedOn: "2026-10-01", amountCents: 100_000, note: null });
+    const entry = postEndesa(asset.id);
+    expect(entry.linkedSnapshotId).not.toBeNull();
+    addAssetSnapshot(asset.id, { recordedOn: "2026-11-01", amountCents: 90_000, note: null });
+    expect(() => confirmImport(input({ rows: [row(1)], recurring: [reconcile(entry.id, true)] }))).toThrow(
+      expect.objectContaining({ position: 7 }),
+    );
+    expect(getExpense(entry.id)).toMatchObject({ amountCents: 4_500, importFingerprint: null });
+    expect(listImportBatches()).toHaveLength(0);
+  });
+
+  it("reports frozen matched entries for the preview", () => {
+    const asset = seedCashAsset();
+    addAssetSnapshot(asset.id, { recordedOn: "2026-10-01", amountCents: 100_000, note: null });
+    const entry = postEndesa(asset.id);
+    expect(frozenEntryKeys([{ kind: "expense", entryId: entry.id }]).size).toBe(0);
+    addAssetSnapshot(asset.id, { recordedOn: "2026-11-01", amountCents: 90_000, note: null });
+    expect([...frozenEntryKeys([{ kind: "expense", entryId: entry.id }])]).toEqual([`expense:${entry.id}`]);
+  });
+
+  it("re-importing shows the confirmed entry as already imported", () => {
+    const entry = postEndesa();
+    confirmImport(input({ rows: [], recurring: [reconcile(entry.id, true)] }));
+    const context = getImportContext("2026-10-01", "2026-10-31");
+    expect(context.existing.find((e) => e.id === entry.id)?.importFingerprint).toBe(
+      "2026-10-27|4389|expense|endesa energia|1",
+    );
+  });
+
+  it("round-trips import updates through a backup", () => {
+    const entry = postEndesa();
+    confirmImport(input({ rows: [row(1)], recurring: [reconcile(entry.id, true)] }));
+    const backup = JSON.parse(JSON.stringify(exportDatabase()));
+    expect(backup.import_batch_updates).toHaveLength(1);
+    expect(importDatabase(backup)).toEqual({ ok: true });
+    expect(testDb.select().from(schema.importBatchUpdates).all()).toHaveLength(1);
   });
 });

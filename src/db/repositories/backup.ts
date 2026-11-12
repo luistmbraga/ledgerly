@@ -9,6 +9,7 @@ import {
   incomes,
   goals,
   personalityAnswers,
+  importBatchUpdates,
   importBatches,
   investorProfiles,
   recurringTemplates,
@@ -139,6 +140,16 @@ const ImportBatchSchema = z.object({
   createdAt: z.string(),
 });
 
+const ImportBatchUpdateSchema = z.object({
+  id: z.number().int(),
+  batchId: z.number().int(),
+  kind: z.enum(["expense", "income"]),
+  entryId: z.number().int(),
+  previousAmountCents: z.number().int(),
+  previousOccurredOn: z.string(),
+  previousFingerprint: z.string().nullable(),
+});
+
 const GoalSchema = z.object({
   id: z.number().int(),
   name: z.string(),
@@ -178,6 +189,7 @@ export const BackupSchema = z.object({
   categories: z.array(CategorySchema),
   recurring_templates: z.array(RecurringTemplateSchema).default([]),
   import_batches: z.array(ImportBatchSchema).default([]),
+  import_batch_updates: z.array(ImportBatchUpdateSchema).default([]),
   expenses: z.array(ExpenseSchema),
   incomes: z.array(IncomeSchema),
   goals: z.array(GoalSchema),
@@ -210,6 +222,11 @@ export function exportDatabase(): BackupData {
       .from(importBatches)
       .all()
       .map((row) => ImportBatchSchema.parse(row)),
+    import_batch_updates: db
+      .select()
+      .from(importBatchUpdates)
+      .all()
+      .map((row) => ImportBatchUpdateSchema.parse(row)),
     expenses: db.select().from(expenses).all(),
     incomes: db.select().from(incomes).all(),
     goals: db.select().from(goals).all(),
@@ -244,6 +261,7 @@ export function importDatabase(raw: unknown): ImportResult {
       tx.delete(expenses).run();
       tx.delete(incomes).run();
       tx.delete(recurringTemplates).run();
+      tx.delete(importBatchUpdates).run();
       tx.delete(importBatches).run();
       tx.delete(valueSnapshots).run();
       tx.delete(categories).run();
@@ -279,6 +297,9 @@ export function importDatabase(raw: unknown): ImportResult {
       if (data.value_snapshots.length > 0) tx.insert(valueSnapshots).values(data.value_snapshots).run();
       if (data.import_batches.length > 0) {
         tx.insert(importBatches).values(data.import_batches).run();
+      }
+      if (data.import_batch_updates.length > 0) {
+        tx.insert(importBatchUpdates).values(data.import_batch_updates).run();
       }
       if (data.recurring_templates.length > 0) {
         tx.insert(recurringTemplates).values(data.recurring_templates).run();

@@ -119,44 +119,59 @@ export function createExpense(input: ExpenseInput): ExpenseRecord {
   return db.transaction((tx) => insertExpense(tx, input));
 }
 
+/**
+ * Validate, apply cash-link rules and update inside the caller's transaction.
+ * `importFingerprint` is only changed when given.
+ */
+export function updateExpenseTx(
+  tx: Tx,
+  id: number,
+  input: ExpenseInput,
+  links: Pick<JournalLinks, "importFingerprint"> & { clearFingerprint?: boolean } = {},
+): ExpenseRecord | undefined {
+  const existing = tx.select().from(expenses).where(eq(expenses.id, id)).get();
+  if (!existing) return undefined;
+  const value = assertExpenseInput(input);
+  const link = updateCashLink(
+    tx,
+    {
+      assetId: existing.assetId,
+      linkedSnapshotId: existing.linkedSnapshotId,
+      amountCents: existing.amountCents,
+      occurredOn: existing.occurredOn,
+    },
+    {
+      assetId: value.assetId,
+      occurredOn: value.occurredOn,
+      amountCents: value.amountCents,
+      direction: "expense",
+    },
+  );
+  return tx
+    .update(expenses)
+    .set({
+      amountCents: value.amountCents,
+      occurredOn: value.occurredOn,
+      categoryId: value.categoryId,
+      assetId: link.assetId,
+      linkedSnapshotId: link.linkedSnapshotId,
+      note: value.note,
+      ...(links.importFingerprint !== undefined || links.clearFingerprint
+        ? { importFingerprint: links.importFingerprint ?? null }
+        : {}),
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(expenses.id, id))
+    .returning()
+    .get();
+}
+
 export function updateExpense(
   id: number,
   input: ExpenseInput,
 ): ExpenseRecord | undefined {
-  const existing = getExpense(id);
-  if (!existing) return undefined;
-  const value = assertExpenseInput(input);
-  return db.transaction((tx) => {
-    const link = updateCashLink(
-      tx,
-      {
-        assetId: existing.assetId,
-        linkedSnapshotId: existing.linkedSnapshotId,
-        amountCents: existing.amountCents,
-        occurredOn: existing.occurredOn,
-      },
-      {
-        assetId: value.assetId,
-        occurredOn: value.occurredOn,
-        amountCents: value.amountCents,
-        direction: "expense",
-      },
-    );
-    return tx
-      .update(expenses)
-      .set({
-        amountCents: value.amountCents,
-        occurredOn: value.occurredOn,
-        categoryId: value.categoryId,
-        assetId: link.assetId,
-        linkedSnapshotId: link.linkedSnapshotId,
-        note: value.note,
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(expenses.id, id))
-      .returning()
-      .get();
-  });
+  if (!getExpense(id)) return undefined;
+  return db.transaction((tx) => updateExpenseTx(tx, id, input));
 }
 
 export function deleteExpense(id: number): boolean {

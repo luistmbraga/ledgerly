@@ -173,6 +173,25 @@ export const importBatches = sqliteTable(
   ],
 );
 
+export const importBatchUpdates = sqliteTable(
+  "import_batch_updates",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    batchId: integer("batch_id")
+      .notNull()
+      .references(() => importBatches.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    entryId: integer("entry_id").notNull(),
+    previousAmountCents: integer("previous_amount_cents").notNull(),
+    previousOccurredOn: text("previous_occurred_on").notNull(),
+    previousFingerprint: text("previous_fingerprint"),
+  },
+  (table) => [
+    index("import_batch_updates_batch_id_idx").on(table.batchId),
+    check("import_batch_updates_kind_ck", sql`\`kind\` IN ('expense', 'income')`),
+  ],
+);
+
 export const expenses = sqliteTable(
   "expenses",
   {
@@ -312,6 +331,7 @@ export type ExpenseRow = typeof expenses.$inferSelect;
 export type IncomeRow = typeof incomes.$inferSelect;
 export type RecurringTemplateRow = typeof recurringTemplates.$inferSelect;
 export type ImportBatchRow = typeof importBatches.$inferSelect;
+export type ImportBatchUpdateRow = typeof importBatchUpdates.$inferSelect;
 export type GoalRow = typeof goals.$inferSelect;
 export type PersonalityAnswerRow = typeof personalityAnswers.$inferSelect;
 export type InvestorProfileRow = typeof investorProfiles.$inferSelect;

@@ -187,7 +187,18 @@ Index: `(occurred_on)`, `(category_id)`, `(asset_id)`, `(import_fingerprint)`; u
 | row_count | integer | |
 | created_at | text | |
 
-Undo deletes the batch's journal rows (reversing cash links newest first), its closing snapshot, then the batch. It is refused if a linked row is frozen.
+Undo deletes the batch's journal rows (reversing cash links newest first), its closing snapshot, restores entries listed in `import_batch_updates`, then the batch. It is refused if a linked row is frozen.
+
+## Table: `import_batch_updates` (slice 18)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | integer PK | |
+| batch_id | integer FK → import_batches.id | `on delete cascade` |
+| kind | text | `expense` \| `income` |
+| entry_id | integer | the recurring-posted entry this import confirmed |
+| previous_amount_cents, previous_occurred_on | | values before the import |
+| previous_fingerprint | text nullable | |
 
 ---
 

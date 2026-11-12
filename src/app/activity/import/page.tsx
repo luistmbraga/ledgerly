@@ -22,6 +22,10 @@ function savedMessage(params: Record<string, string | undefined>): string | unde
   if (params.saved === "undone") return `Import undone. ${plural(rows, "entry")} removed.`.replace("entrys", "entries");
   if (params.saved !== "imported") return undefined;
   const parts = [`Imported ${plural(rows, "row")}.`];
+  const updated = count(params.updated);
+  if (updated > 0) {
+    parts.push(`${updated} posted recurring ${updated === 1 ? "entry was" : "entries were"} updated to the bank amount.`);
+  }
   const unlinked = count(params.unlinked);
   if (unlinked > 0) {
     parts.push(`${unlinked} ${unlinked === 1 ? "was" : "were"} imported without the cash link because the account already had a newer balance.`);
