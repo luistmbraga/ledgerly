@@ -1,0 +1,125 @@
+TRADE REPUBLIC BANK GMBH, SUCURSAL EM PORTUGAL AV. DA REPÚBLICA 50, 1050-196 LISBOA, PORTUGAL
+DATA 01 ago. 2026 - 09 nov. 2026
+IBAN PT50000000000000000000001
+BIC TRBKPTP2XXX
+ANA MARIA SOUSA COSTA
+Rua das Flores 12
+1000-001 Lisboa
+Trade Republic Bank GmbH, Sucursal em Portugal
+Av. da República 50
+1050-196 Lisboa
+NIPC number: 980876311
+www.traderepublic.pt
+VAT ID No. DE307510626
+Sede da empresa: Trade Republic Bank GmbH
+Brunnenstrasse 19-21, 10119 Berlin, Germany
+AG Charlottenburg, HRB 244347 B
+Diretores
+Andreas Torner
+Gernot Mittendorfer
+Christian Hecker
+Thomas Pischke
+Pablo López Gil-Albarellos
+Gerado no dia 2026-11-10 09:07:55 Europe/Lisbon (UTC+00:00) Página 1 de 3
+RESUMO DO EXTRATO DE CONTA
+PRODUTO SALDO INICIAL ENTRADA DE DINHEIRO SAÍDA DE DINHEIRO SALDO FINAL
+Conta corrente 17 086,40 € 5 106,33 € 1 501,07 € 20 691,66 €
+TRANSAÇÕES
+DATA TIPO DESCRIÇÃO ENTRADA DE
+DINHEIRO
+SAÍDA DE
+DINHEIRO SALDO
+01 ago.
+2026 Juros Interest payment 23,04 € 17 109,44 €
+26 ago.
+2026 Transferência Incoming transfer from ANA MARIA SOUSA COSTA
+(PT50000000000000000000002) 2 000,00 € 19 109,44 €
+01 set.
+2026 Juros Interest payment 24,07 € 19 133,51 €
+27 set.
+2026 Transferência Incoming transfer from ANA MARIA SOUSA COSTA
+(PT50000000000000000000002) 1 500,00 € 20 633,51 €
+01 out.
+2026 Juros Interest payment 27,19 € 20 660,70 €
+26 out.
+2026 Transferência Incoming transfer from ANA MARIA SOUSA COSTA
+(PT50000000000000000000002) 1 500,00 € 22 160,70 €
+01 nov.
+2026 Juros Interest payment 32,03 € 22 192,73 €
+04 nov.
+2026 Comércio Buy trade IE0000VITHT2 iShares V plc - iShares iBonds Dec 2028 Term $
+Corp UCITS ETF USD (Dist), quantity: 331.257453 1 501,07 € 20 691,66 €
+SÍNTESE DO BALANÇO
+em 09 nov. 2026
+CONTAS COLETIVAS SALDO
+Citibank 15 000,00 €
+TRADE REPUBLIC BANK GMBH, SUCURSAL EM PORTUGAL AV. DA REPÚBLICA 50, 1050-196 LISBOA, PORTUGAL
+Trade Republic Bank GmbH, Sucursal em Portugal
+Av. da República 50
+1050-196 Lisboa
+NIPC number: 980876311
+www.traderepublic.pt
+VAT ID No. DE307510626
+Sede da empresa: Trade Republic Bank GmbH
+Brunnenstrasse 19-21, 10119 Berlin, Germany
+AG Charlottenburg, HRB 244347 B
+Diretores
+Andreas Torner
+Gernot Mittendorfer
+Christian Hecker
+Thomas Pischke
+Pablo López Gil-Albarellos
+Gerado no dia 2026-11-10 09:07:55 Europe/Lisbon (UTC+00:00) Página 2 de 3
+FUNDOS DO MERCADO MONETÁRIO ISIN UNIDADES PREÇO POR UNIDADE VALOR DE MERCADO EM EUR
+BNP Paribas InstiCash Euro Liquidity LU3041245716 5 691,66 1,00 € 5 691,66 €
+SÍNTESE DAS TRANSAÇÕES
+DATA TIPO FUNDOS DO MERCADO MONETÁRIO UNIDADES PREÇO POR UNIDADE MONTANTE
+28 ago. 2026 Compra BNP Paribas InstiCash Euro Liquidity
+LU3041245716 4 109,44 1,00 € 4 109,44 €
+03 set. 2026 Compra BNP Paribas InstiCash Euro Liquidity
+LU3041245716 24,07 1,00 € 24,07 €
+28 set. 2026 Compra BNP Paribas InstiCash Euro Liquidity
+LU3041245716 1 500,00 1,00 € 1 500,00 €
+02 out. 2026 Compra BNP Paribas InstiCash Euro Liquidity
+LU3041245716 9,36 1,00 € 9,36 €
+05 out. 2026 Compra BNP Paribas InstiCash Euro Liquidity
+LU3041245716 17,83 1,00 € 17,83 €
+27 out. 2026 Compra BNP Paribas InstiCash Euro Liquidity
+LU3041245716 1 500,00 1,00 € 1 500,00 €
+03 nov. 2026 Compra BNP Paribas InstiCash Euro Liquidity
+LU3041245716 32,03 1,00 € 32,03 €
+05 nov. 2026 Venda BNP Paribas InstiCash Euro Liquidity
+LU3041245716 1 501,07 1,00 € 1 501,07 €
+NOTAS SOBRE O EXTRATO DE CONTA
+É favor verificar o seu extrato de conta, uma vez que as objecções devem ser imediatamente apresentadas. Tenha em atenção que o
+saldo da conta indicado não tem em conta a data-valor das reservas ou transacções individuais, ou seja, o montante indicado não
+corresponde necessariamente ao saldo da conta relevante para o cálculo dos juros. Considera-se que um extrato de conta periódico foi
+aprovado se não forem levantadas quaisquer objecções no prazo de 6 semanas. Para cumprir o prazo, basta enviar uma reclamação
+através do nosso serviço de apoio ao cliente (chat). Todas as conversas no chat são sujeitas a verificações independentes pela área de
+Auditoria Interna. Em relação aos contratos subjacentes, este extrato de conta é considerado como uma fatura na aceção da lei alemã do
+IVA (UStG), de acordo com o número de conta indicado. Os saldos detidos em bancos depositários estão protegidos até 100 000 euros
+pelo sistema de proteção de depósitos do banco depositário. As acções de fundos do mercado monetário qualificados (QMMF) estão
+protegidas no caso improvável de insolvência da Trade Republic. Pode obter mais informações sobre a proteção dos seus fundos em
+https://support.traderepublic.com.
+TRADE REPUBLIC BANK GMBH, SUCURSAL EM PORTUGAL AV. DA REPÚBLICA 50, 1050-196 LISBOA, PORTUGAL
+Trade Republic Bank GmbH, Sucursal em Portugal
+Av. da República 50
+1050-196 Lisboa
+NIPC number: 980876311
+www.traderepublic.pt
+VAT ID No. DE307510626
+Sede da empresa: Trade Republic Bank GmbH
+Brunnenstrasse 19-21, 10119 Berlin, Germany
+AG Charlottenburg, HRB 244347 B
+Diretores
+Andreas Torner
+Gernot Mittendorfer
+Christian Hecker
+Thomas Pischke
+Pablo López Gil-Albarellos
+Gerado no dia 2026-11-10 09:07:55 Europe/Lisbon (UTC+00:00) Página 3 de 3
+CONFIRMAÇÃO DA VALIDADE DO DOCUMENTO
+Enquanto prestador de serviços digitais, comunicamos com os nossos clientes por via eletrónica, em vez de por papel ou por correio. Isto significa que os extratos de conta,
+certificados e outros documentos são gerados e entregues exclusivamente através da aplicação da Trade Republic. Estes documentos constituem registos autênticos e válidos
+emitidos pela Trade Republic e podem ser apresentados a autoridades públicas, instituições financeiras ou outras entidades como documentação oficial. A Trade Republic não
+emite versões equivalentes destes documentos através de qualquer outro canal, seja por via eletrónica, em formato impresso ou por correio.

@@ -27,6 +27,8 @@ const KEYWORDS: Record<string, readonly string[]> = {
   Entertainment: ["netflix", "cinema", "movie", "spotify"],
   Shopping: ["amazon", "clothes", "shopping"],
   Education: ["tuition", "course", "school"],
+  // Income: only matches when suggesting among income categories.
+  "Investment income": ["interest", "dividend", "dividends", "juros"],
 };
 
 

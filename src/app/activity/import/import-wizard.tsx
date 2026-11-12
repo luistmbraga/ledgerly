@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useRef, useState, useTransition } from "react";
+import { feeNote, parseTradeFee, type FeeResult } from "@/domain/import-fee";
 import { formatMoney } from "@/lib/money";
 import { formatIsoDate } from "../../assets/labels";
 import {
@@ -26,6 +27,7 @@ const FLAG_LABEL: Record<NonNullable<PreviewRow["flag"]>["type"], string> = {
   likely_recurring: "Recurring",
   likely_manual: "Possible duplicate",
   own_transfer: "Own transfer",
+  investment_trade: "Investment trade",
   offsetting_pair: "Cancels out",
 };
 
@@ -63,8 +65,9 @@ export function ImportWizard({ cashAccounts, categories, currency }: Props) {
             className="text-sm text-stone-800 file:mr-3 file:rounded-md file:border file:border-stone-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-stone-800 hover:file:bg-stone-100"
           />
           <p className="text-xs text-stone-600">
-            Supported: Caixa Geral de Depósitos &ldquo;Consultar saldos e movimentos&rdquo; export and
-            ActivoBank &ldquo;Extrato Combinado&rdquo;. The file is read on this computer and is not stored.
+            Supported: Caixa Geral de Depósitos &ldquo;Consultar saldos e movimentos&rdquo; export,
+            ActivoBank &ldquo;Extrato Combinado&rdquo; and Trade Republic &ldquo;Account statement&rdquo;. The
+            file is read on this computer and is not stored.
           </p>
         </div>
 
@@ -150,7 +153,22 @@ export function ImportWizard({ cashAccounts, categories, currency }: Props) {
   );
 }
 
-type Selection = { included: boolean; categoryId: number | null; note: string };
+type Selection = { included: boolean; categoryId: number | null; note: string; feeText: string };
+
+/** The fee typed on an investment trade row, or null when there is none. */
+function feeOf(row: PreviewRow, selection: Selection): FeeResult | null {
+  if (row.flag?.type !== "investment_trade" || row.amountCents === null) return null;
+  if (selection.feeText.trim() === "") return null;
+  return parseTradeFee(selection.feeText, row.amountCents);
+}
+
+/** What the row will import as: the whole row, or only the fee as an expense. */
+function effectiveOf(row: PreviewRow, selection: Selection) {
+  const fee = feeOf(row, selection);
+  return fee?.ok
+    ? { kind: "expense" as const, amountCents: fee.cents, fee }
+    : { kind: row.kind, amountCents: row.amountCents, fee };
+}
 
 function ReconciliationNote({ preview, currency }: { preview: ImportPreview; currency: string }) {
   const r = preview.reconciliation;
@@ -228,7 +246,7 @@ function PreviewPanel({
       new Map(
         preview.rows.map((row) => [
           row.position,
-          { included: row.included, categoryId: row.categoryId, note: row.description },
+          { included: row.included, categoryId: row.categoryId, note: row.description, feeText: "" },
         ]),
       ),
   );
@@ -246,17 +264,45 @@ function PreviewPanel({
   const update = (position: number, patch: Partial<Selection>) =>
     setSelections((current) => new Map(current).set(position, { ...current.get(position)!, ...patch }));
 
+  // Typing a valid fee ticks the row and turns it into a fee expense; clearing it
+  // puts the row back as the unticked trade.
+  const changeFee = (row: PreviewRow, feeText: string) =>
+    setSelections((current) => {
+      const previous = current.get(row.position)!;
+      const before = effectiveOf(row, previous);
+      const next: Selection = { ...previous, feeText };
+      const after = effectiveOf(row, next);
+      if (after.fee?.ok && !before.fee?.ok) {
+        next.included = true;
+        if (previous.note === row.description) next.note = feeNote(row.description);
+      }
+      if (feeText.trim() === "" && before.fee !== null) {
+        next.included = false;
+        if (previous.note === feeNote(row.description)) next.note = row.description;
+      }
+      if (after.kind !== before.kind) next.categoryId = after.kind === row.kind ? row.categoryId : null;
+      return new Map(current).set(row.position, next);
+    });
+
   const totals = useMemo(() => {
     let count = 0;
     let inCents = 0;
     let outCents = 0;
+    let feeErrors = 0;
     for (const row of preview.rows) {
-      if (!selections.get(row.position)?.included || row.amountCents === null) continue;
+      const selection = selections.get(row.position)!;
+      if (!selection.included || row.amountCents === null) continue;
+      const effective = effectiveOf(row, selection);
       count += 1;
-      if (row.kind === "income") inCents += row.amountCents;
-      else outCents += row.amountCents;
+      // An invalid fee blocks import; leave its amount out rather than count the whole trade.
+      if (effective.fee && !effective.fee.ok) {
+        feeErrors += 1;
+        continue;
+      }
+      if (effective.kind === "income") inCents += effective.amountCents!;
+      else outCents += effective.amountCents!;
     }
-    return { count, inCents, outCents };
+    return { count, inCents, outCents, feeErrors };
   }, [preview.rows, selections]);
 
   const confirm = () => {
@@ -269,7 +315,13 @@ function PreviewPanel({
       .filter((row) => selections.get(row.position)?.included)
       .map((row) => {
         const s = selections.get(row.position)!;
-        return { position: row.position, categoryId: s.categoryId, note: s.note };
+        const fee = feeOf(row, s);
+        return {
+          position: row.position,
+          categoryId: s.categoryId,
+          note: s.note,
+          ...(fee?.ok ? { feeCents: fee.cents } : {}),
+        };
       });
     const formData = new FormData();
     formData.set("file", file);
@@ -349,7 +401,8 @@ function PreviewPanel({
           <tbody>
             {preview.rows.map((row) => {
               const selection = selections.get(row.position)!;
-              const options = categories[row.kind];
+              const effective = effectiveOf(row, selection);
+              const options = categories[effective.kind];
               const highlighted = error?.position === row.position;
               return (
                 <tr
@@ -384,12 +437,17 @@ function PreviewPanel({
                   </td>
                   <td
                     className={`whitespace-nowrap py-2 pr-3 tabular-nums ${
-                      row.kind === "income" ? "text-teal-800" : ""
+                      effective.kind === "income" ? "text-teal-800" : ""
                     }`}
                   >
-                    {row.amountCents === null
+                    {effective.amountCents === null
                       ? "—"
-                      : `${row.kind === "income" ? "+" : "−"}${formatMoney(row.amountCents, currency)}`}
+                      : `${effective.kind === "income" ? "+" : "−"}${formatMoney(effective.amountCents, currency)}`}
+                    {effective.fee?.ok && row.amountCents !== null ? (
+                      <span className="block text-xs text-stone-600">
+                        fee of a {formatMoney(row.amountCents, currency)} trade
+                      </span>
+                    ) : null}
                   </td>
                   <td className="py-2 pr-3">
                     <select
@@ -415,6 +473,28 @@ function PreviewPanel({
                     {row.flag ? (
                       <span className="text-amber-900">
                         <span className="font-medium">{FLAG_LABEL[row.flag.type]}.</span> {row.flag.reason}
+                      </span>
+                    ) : null}
+                    {row.flag?.type === "investment_trade" && row.amountCents !== null ? (
+                      <span className="mt-1 block text-stone-800">
+                        <label className="flex items-center gap-1.5">
+                          <span>Split off a fee</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            aria-label={`Fee for row ${row.position}`}
+                            aria-invalid={effective.fee !== null && !effective.fee.ok}
+                            value={selection.feeText}
+                            onChange={(event) => changeFee(row, event.target.value)}
+                            className="w-20 rounded-md border border-stone-200 bg-white px-2 py-1 text-sm tabular-nums text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700"
+                          />
+                        </label>
+                        {effective.fee && !effective.fee.ok ? (
+                          <span className="block text-red-800">{effective.fee.error}</span>
+                        ) : (
+                          <span className="block text-stone-600">Imports only the fee, as an expense.</span>
+                        )}
                       </span>
                     ) : null}
                     {row.recurringUpdate ? (
@@ -456,6 +536,13 @@ function PreviewPanel({
         </table>
       </div>
 
+      {totals.feeErrors > 0 ? (
+        <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          Fix the fee on {totals.feeErrors === 1 ? "1 trade row" : `${totals.feeErrors} trade rows`}, or clear
+          it to import the whole trade.
+        </p>
+      ) : null}
+
       {error ? (
         <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error.position !== null ? `Row ${error.position}: ` : ""}
@@ -467,7 +554,7 @@ function PreviewPanel({
         <button
           type="button"
           onClick={confirm}
-          disabled={pending || (totals.count === 0 && updateCount === 0)}
+          disabled={pending || totals.feeErrors > 0 || (totals.count === 0 && updateCount === 0)}
           className="rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2 disabled:opacity-60"
         >
           {pending

@@ -16,6 +16,7 @@ import {
 } from "@/db/repositories/imports";
 import { getLatestSnapshot } from "@/db/repositories/snapshots";
 import { flagCandidates, type ImportFlag } from "@/domain/import-dedupe";
+import { resolveImportedAmount } from "@/domain/import-fee";
 import { isLinkMode, planCashLinks, type LinkMode, type LinkPlan } from "@/domain/import-links";
 import { buildRecurringReconciles, resolveRecurringUpdates } from "@/domain/import-recurring";
 import {
@@ -253,6 +254,8 @@ const SelectionSchema = z
       position: z.number().int().positive(),
       categoryId: z.number().int().positive().nullable(),
       note: z.string().max(500),
+      /** Investment trade rows only: import just this fee, as an expense. */
+      feeCents: z.number().int().positive().optional(),
     }),
   )
   .max(5_000);
@@ -299,11 +302,18 @@ export async function confirmImportAction(formData: FormData): Promise<ConfirmRe
     ) {
       return { ok: false, error: candidate.issue ?? "This row cannot be imported.", position: candidate.position };
     }
+    const imported = resolveImportedAmount({
+      kind: candidate.kind,
+      amountCents: candidate.amountCents,
+      flagType: flags.get(candidate.position)?.type ?? null,
+      feeCents: selection.feeCents,
+    });
+    if (!imported.ok) return { ok: false, error: imported.error, position: candidate.position };
     rows.push({
       position: candidate.position,
       occurredOn: candidate.occurredOn,
-      kind: candidate.kind,
-      amountCents: candidate.amountCents,
+      kind: imported.kind,
+      amountCents: imported.amountCents,
       categoryId: selection.categoryId,
       note: selection.note.trim() || candidate.description,
       fingerprint: candidate.fingerprint,

@@ -1,9 +1,8 @@
 import { parseBankAmount, parseBankDate } from "@/lib/bank-amount";
 import type { ParsedStatement, StatementParser, StatementRow } from "../types";
+import { readChainedLine, type AmountFormat } from "./running-balance";
 
 const AMOUNT = String.raw`\d{1,3}(?: \d{3})*\.\d{2}`;
-const IS_AMOUNT = new RegExp(`^${AMOUNT}$`);
-const IS_BALANCE = new RegExp(`^-?${AMOUNT}$`);
 const MOVEMENT = /^(\d{2})\.(\d{2}) (\d{2})\.(\d{2}) (.+)$/;
 const SECTION = /^CONTA .+ MOEDA: ([A-Z]{3})$/;
 const PERIOD = /^EXTRATO DE (\d{4})\/(\d{2})\/(\d{2}) A (\d{4})\/(\d{2})\/(\d{2})$/;
@@ -15,29 +14,7 @@ function cents(raw: string): number | null {
   return parsed.ok ? parsed.cents : null;
 }
 
-type Split = { description: string; amountCents: number; balanceCents: number };
-
-/**
- * Every way to read "<description> <amount> <balance>" when thousands are separated
- * by spaces: "LOJA 12 345.00 1 000.00" could be amount 345.00 or 12 345.00.
- */
-function splits(tail: string): Split[] {
-  const tokens = tail.split(" ");
-  const found: Split[] = [];
-  for (let b = tokens.length - 1; b >= 2; b -= 1) {
-    const balanceText = tokens.slice(b).join(" ");
-    if (!IS_BALANCE.test(balanceText)) continue;
-    for (let a = b - 1; a >= 1; a -= 1) {
-      const amountText = tokens.slice(a, b).join(" ");
-      if (!IS_AMOUNT.test(amountText)) continue;
-      const amountCents = cents(amountText);
-      const balanceCents = cents(balanceText);
-      if (amountCents === null || balanceCents === null) continue;
-      found.push({ description: tokens.slice(0, a).join(" "), amountCents, balanceCents });
-    }
-  }
-  return found;
-}
+const FORMAT: AmountFormat = { amount: AMOUNT, parse: cents };
 
 function yearFor(month: number, from: { year: number; month: number }, to: { year: number; month: number }) {
   if (from.year === to.year) return from.year;
@@ -113,46 +90,38 @@ export const activobankExtratoParser: StatementParser = {
       const occurredOn = date(valueMonth, valueDay);
       const postedOn = date(postedMonth, postedDay);
 
-      const options = splits(tail);
-      const chained = options.filter(
-        (s) =>
-          previous !== null &&
-          (previous + s.amountCents === s.balanceCents || previous - s.amountCents === s.balanceCents),
-      );
-      // Prefer the reading that keeps the most text in the description.
-      const pick = chained[0];
+      const read = readChainedLine(tail, previous, FORMAT);
       const position = rows.length + 1;
 
-      if (!pick || previous === null) {
+      if (!read.ok) {
         rows.push({
           position,
           occurredOn,
           postedOn,
           description: tail,
           amountCents: null,
-          balanceCents: options[0]?.balanceCents ?? null,
+          balanceCents: read.balanceCents,
           issue: "This line could not be read as a movement that follows from the previous balance.",
         });
-        if (options[0]) previous = options[0].balanceCents;
+        if (read.balanceCents !== null) previous = read.balanceCents;
         continue;
       }
 
-      const signed = previous + pick.amountCents === pick.balanceCents ? pick.amountCents : -pick.amountCents;
       rows.push({
         position,
         occurredOn,
         postedOn,
-        description: pick.description,
-        amountCents: signed,
-        balanceCents: pick.balanceCents,
+        description: read.description,
+        amountCents: read.amountCents,
+        balanceCents: read.balanceCents,
         issue:
           occurredOn === null || postedOn === null
             ? "The date on this line is not valid."
-            : pick.amountCents === 0
+            : read.amountCents === 0
               ? "The amount on this line is not valid."
               : null,
       });
-      previous = pick.balanceCents;
+      previous = read.balanceCents;
     }
 
     return {

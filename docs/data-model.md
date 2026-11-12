@@ -176,7 +176,7 @@ Index: `(occurred_on)`, `(category_id)`, `(asset_id)`, `(import_fingerprint)`; u
 |--------|------|-------|
 | id | integer PK | |
 | source | text | `pdf` |
-| parser_id | text | `cgd-movimentos` or `activobank-extrato` |
+| parser_id | text | `cgd-movimentos`, `activobank-extrato` or `trade-republic-extrato` |
 | file_name | text | the file itself is never stored |
 | file_sha256 | text | warns on re-upload of the same file |
 | period_from, period_to | text nullable | statement period |

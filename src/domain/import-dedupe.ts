@@ -13,6 +13,7 @@ export type ImportFlag =
     }
   | { type: "likely_manual"; reason: string; matchId: number }
   | { type: "own_transfer"; reason: string }
+  | { type: "investment_trade"; reason: string }
   | { type: "offsetting_pair"; reason: string; pairPosition: number };
 
 export type ExistingJournalRow = {
@@ -56,10 +57,17 @@ export function isOwnTransfer(normalizedDescription: string, holderName: string 
   return holder.startsWith(description) || description.startsWith(holder);
 }
 
+const INVESTMENT_TRADE = /^(?:buy trade|sell trade|savings plan execution)\b/;
+
+/** True for broker trade rows (e.g. Trade Republic's "Buy trade …"). */
+export function isInvestmentTrade(normalizedDescription: string): boolean {
+  return INVESTMENT_TRADE.test(normalizedDescription);
+}
+
 /**
  * One flag per candidate (or none), in priority order: exact duplicate, posted by a
- * recurring template, matching a hand-entered row, own-account transfer, then a
- * same-day pair that cancels out. Each existing row matches at most one candidate.
+ * recurring template, matching a hand-entered row, own-account transfer, investment
+ * trade, then a same-day pair that cancels out. Each existing row matches at most one candidate.
  */
 export function flagCandidates(input: {
   candidates: readonly ImportCandidate[];
@@ -152,6 +160,16 @@ export function flagCandidates(input: {
       flags.set(candidate.position, {
         type: "own_transfer",
         reason: "Looks like a transfer to or from your own account.",
+      });
+    }
+  }
+
+  for (const candidate of usable) {
+    if (flags.has(candidate.position)) continue;
+    if (isInvestmentTrade(candidate.normalizedDescription)) {
+      flags.set(candidate.position, {
+        type: "investment_trade",
+        reason: "Buying or selling an investment moves money into or out of a holding; it isn't spending or income.",
       });
     }
   }

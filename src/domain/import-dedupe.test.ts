@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { cgdMovimentosParser } from "@/import/parsers/cgd";
-import { flagCandidates, isOwnTransfer, type ExistingJournalRow } from "./import-dedupe";
+import { flagCandidates, isInvestmentTrade, isOwnTransfer, type ExistingJournalRow } from "./import-dedupe";
 import {
   buildCategorySuggester,
   normalizeDescription,
@@ -53,6 +53,13 @@ describe("normalizeDescription", () => {
     expect(normalizeDescription("TRF MB WAY P/ RUI COSTA")).toBe("rui costa");
     expect(normalizeDescription("TRF. P/O ANA COSTA")).toBe("ana costa");
     expect(normalizeDescription("TRF P/ Ana Costa")).toBe("ana costa");
+  });
+
+  it("strips Trade Republic transfer prefixes", () => {
+    expect(normalizeDescription("Incoming transfer from ANA COSTA (PT50000000000000000000002)")).toBe(
+      "ana costa (pt50000000000000000000002)",
+    );
+    expect(normalizeDescription("Outgoing transfer to Ana Costa")).toBe("ana costa");
   });
 });
 
@@ -214,6 +221,26 @@ describe("isOwnTransfer", () => {
   });
 });
 
+describe("investment trades", () => {
+  it("recognises broker trade rows only", () => {
+    expect(isInvestmentTrade("buy trade ie0000vitht2 ishares")).toBe(true);
+    expect(isInvestmentTrade("sell trade ie0000vitht2 ishares")).toBe(true);
+    expect(isInvestmentTrade("savings plan execution ie00b4l5y983")).toBe(true);
+    expect(isInvestmentTrade("buy trades magazine")).toBe(false);
+    expect(isInvestmentTrade("continente buy trade")).toBe(false);
+  });
+
+  it("flags a trade unticked unless a stronger flag already applies", () => {
+    const trade = candidate(1, { description: "Buy trade IE0000VITHT2", normalizedDescription: "buy trade ie0000vitht2" });
+    const flags = flagCandidates({ candidates: [trade], existing: [], templates: [], holderName: null });
+    expect(flags.get(1)).toMatchObject({ type: "investment_trade" });
+
+    const existing = [row({ id: 7, importFingerprint: trade.fingerprint })];
+    const again = flagCandidates({ candidates: [trade], existing, templates: [], holderName: null });
+    expect(again.get(1)).toMatchObject({ type: "exact" });
+  });
+});
+
 describe("buildCategorySuggester", () => {
   const categories = {
     expense: [
@@ -240,6 +267,21 @@ describe("buildCategorySuggester", () => {
     expect(ask("income", "TRF OLX PORTUGAL SA")).toBe(10);
     expect(ask("expense", "WWW.AMAZON B89H89M04")).toBe(2);
     expect(ask("expense", "TALHO SANTIAGO")).toBeNull();
+  });
+
+  it("suggests Investment income for interest and dividends, only among income categories", () => {
+    const suggest = buildCategorySuggester({
+      history: [],
+      categories: { ...categories, income: [...categories.income, { id: 11, name: "Investment income" }] },
+      asOf: "2026-11-12",
+    });
+    const ask = (kind: "expense" | "income", description: string) =>
+      suggest({ kind, description, normalizedDescription: normalizeDescription(description) });
+
+    expect(ask("income", "Interest payment")).toBe(11);
+    expect(ask("income", "Dividend IE0000VITHT2")).toBe(11);
+    expect(ask("income", "JUROS CREDORES")).toBe(11);
+    expect(ask("expense", "Interest payment")).toBeNull();
   });
 });
 

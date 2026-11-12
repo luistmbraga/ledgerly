@@ -28,6 +28,8 @@ export type NormalizableRow = {
 const PREFIX = new RegExp(
   "^(?:" +
     [
+      "incoming transfer from",
+      "outgoing transfer to",
       String.raw`compras c\.deb`,
       String.raw`compra(?: \d{4})?`,
       String.raw`cred\.(?: \d{4})?`,
