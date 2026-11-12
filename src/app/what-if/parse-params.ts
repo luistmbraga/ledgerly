@@ -20,7 +20,8 @@ export type WhatIfField = "income" | "spend" | "oneoff" | "debt" | "extra" | "ra
 export type WhatIfParseContext = {
   /** False when the trailing income/expense averages are unknown. */
   percentAvailable: boolean;
-  liabilities: ReadonlyArray<{ id: number; balanceCents: number }>;
+  /** `annualRateBps` is the recorded rate, used when no rate is typed. */
+  liabilities: ReadonlyArray<{ id: number; balanceCents: number; annualRateBps?: number | null }>;
 };
 
 export type WhatIfParseResult = {
@@ -158,7 +159,10 @@ export function parseWhatIfParams(
     }
 
     let rateBps: number | null = null;
-    if (values.rate === "") {
+    const storedRateBps = liability?.annualRateBps ?? null;
+    if (values.rate === "" && storedRateBps !== null) {
+      rateBps = storedRateBps;
+    } else if (values.rate === "") {
       errors.rate = "Enter the annual interest rate.";
     } else {
       const parsed = parsePercentToBps(values.rate, false);

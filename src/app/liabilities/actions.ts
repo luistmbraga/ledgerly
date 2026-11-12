@@ -16,6 +16,7 @@ import {
 } from "@/db/repositories/snapshots";
 import { isValidIsoDate } from "@/lib/dates";
 import { parseMoneyToCents } from "@/lib/money";
+import { parseAnnualRatePercent } from "@/lib/percent";
 import type { ActionState } from "@/lib/action-state";
 
 function readId(formData: FormData): number | null {
@@ -29,13 +30,19 @@ function extractLiabilityValues(formData: FormData): Record<string, string> {
   return {
     name: String(formData.get("name") ?? ""),
     type: String(formData.get("type") ?? ""),
+    annualRate: String(formData.get("annualRate") ?? ""),
     notes: String(formData.get("notes") ?? ""),
   };
 }
 
 function validateLiabilityFields(formData: FormData): {
   errors: Record<string, string>;
-  input?: { name: string; type: LiabilityType; notes: string | null };
+  input?: {
+    name: string;
+    type: LiabilityType;
+    annualRateBps: number | null;
+    notes: string | null;
+  };
 } {
   const errors: Record<string, string> = {};
   const name = String(formData.get("name") ?? "").trim();
@@ -45,6 +52,9 @@ function validateLiabilityFields(formData: FormData): {
   const type = String(formData.get("type") ?? "");
   if (!isLiabilityType(type)) errors.type = "Choose a valid liability type.";
 
+  const rate = parseAnnualRatePercent(String(formData.get("annualRate") ?? ""));
+  if (!rate.ok) errors.annualRate = rate.error;
+
   const notes = String(formData.get("notes") ?? "").trim();
   if (notes.length > 2000) errors.notes = "Notes must be 2000 characters or fewer.";
 
@@ -52,7 +62,12 @@ function validateLiabilityFields(formData: FormData): {
 
   return {
     errors: {},
-    input: { name, type: type as LiabilityType, notes: notes.length === 0 ? null : notes },
+    input: {
+      name,
+      type: type as LiabilityType,
+      annualRateBps: rate.ok ? rate.bps : null,
+      notes: notes.length === 0 ? null : notes,
+    },
   };
 }
 

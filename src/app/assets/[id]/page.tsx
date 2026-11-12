@@ -5,6 +5,7 @@ import { getAsset } from "@/db/repositories/assets";
 import { listSnapshotsForAsset } from "@/db/repositories/snapshots";
 import { centsToDecimalInput, formatMoney } from "@/lib/money";
 import { todayUtc } from "@/lib/dates";
+import { bpsToPercentInput, formatBps } from "@/lib/percent";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
 import {
   addAssetSnapshotAction,
@@ -71,6 +72,9 @@ export default async function AssetDetailPage({
         <h1 className="text-2xl font-semibold tracking-tight">{asset.name}</h1>
         <p className="mt-1 text-sm text-stone-600">
           {ASSET_TYPE_LABELS[asset.type]}
+          {asset.annualRateBps !== null
+            ? ` · earns ${formatBps(asset.annualRateBps)} a year`
+            : null}
         </p>
         <p className="mt-1 text-sm text-stone-600">
           {ASSET_TYPE_DESCRIPTIONS[asset.type]}
@@ -220,6 +224,7 @@ export default async function AssetDetailPage({
                 isLiquid: asset.isLiquid,
                 includeInAllocation: asset.includeInAllocation,
                 sleevePercents: asset.sleevePercents,
+                annualRate: bpsToPercentInput(asset.annualRateBps),
                 notes: asset.notes ?? "",
               }}
             />

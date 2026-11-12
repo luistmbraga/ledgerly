@@ -395,3 +395,49 @@ describe("debt lever", () => {
     }
   });
 });
+
+describe("rated balances", () => {
+  const rated = [{ balanceCents: 2_000_000, annualRateBps: 300 }];
+
+  it("matches the rated projection with no adjustments", () => {
+    const outcome = computeWhatIfOutcome(
+      applyAdjustments(baseline({ ratedBalances: rated }), NO_ADJUSTMENTS),
+    );
+    for (const { key, returnBps } of SCENARIOS) {
+      expect(outcome.projections.find((p) => p.key === key)?.milestones).toEqual(
+        projectNetWorth(5_000_000, 50_000, returnBps, WHAT_IF_HORIZON_YEARS, rated),
+      );
+    }
+  });
+
+  it("keeps the rated projection with a zero extra debt payment", () => {
+    const outcome = computeWhatIfOutcome(
+      applyAdjustments(
+        baseline({ ratedBalances: rated }),
+        adjust({
+          debt: { balanceCents: 1_000_000, extraMonthlyCents: 0, annualRateBps: 400 },
+        }),
+      ),
+    );
+    for (const { key, returnBps } of SCENARIOS) {
+      expect(outcome.projections.find((p) => p.key === key)?.milestones).toEqual(
+        projectNetWorth(5_000_000, 50_000, returnBps, WHAT_IF_HORIZON_YEARS, rated),
+      );
+    }
+  });
+
+  it("puts a one-off amount into the unrated rest", () => {
+    const result = runWhatIf(
+      baseline({ ratedBalances: rated }),
+      adjust({ oneOffCents: 100_000 }),
+    );
+    const conservative = result.diff.projections.find((p) => p.key === "conservative");
+    // 0% on the rest: the windfall stays exactly 100_000 ahead.
+    expect(conservative?.milestones.every((m) => m.netWorthCents === 100_000)).toBe(true);
+  });
+
+  it("does not mutate the baseline's rated balances", () => {
+    const frozen = deepFreeze(baseline({ ratedBalances: rated.map((r) => ({ ...r })) }));
+    expect(() => runWhatIf(frozen, adjust({ oneOffCents: 1 }))).not.toThrow();
+  });
+});

@@ -4,6 +4,8 @@ import { formatMoney } from "@/lib/money";
 import type { GoalStatus } from "@/domain/goals";
 import { goalTemplateExplanation } from "@/app/goals/labels";
 import type { BriefingDecision } from "@/domain/allocation";
+import type { InterestSummary } from "@/domain/interest";
+import { formatBps } from "@/lib/percent";
 import { z } from "zod";
 import { BRIEFING_DISCLAIMER } from "./prompts/briefing";
 import {
@@ -72,8 +74,9 @@ export function goalExplainFallback(goal: {
 export function briefingFallback(input: {
   decision: BriefingDecision;
   currency: string;
+  interest?: InterestSummary | null;
 }): BriefingOutput {
-  const { decision, currency } = input;
+  const { decision, currency, interest } = input;
   const sections: BriefingOutput["sections"] = [];
   if (decision.emergencyGapCents > 0) {
     sections.push({
@@ -86,6 +89,20 @@ export function briefingFallback(input: {
       heading: "Near-term goals",
       body: `Keep ${formatMoney(decision.shortGoalRemainingCents, currency)} for short-term goals in cash-like holdings. That portion sits outside the equity band.`,
     });
+  }
+  if (interest && (interest.ratedAssetCents > 0 || interest.ratedLiabilityCents > 0)) {
+    const parts: string[] = [];
+    if (interest.ratedAssetCents > 0) {
+      parts.push(
+        `Accounts with a recorded rate hold ${formatMoney(interest.ratedAssetCents, currency)} and would earn about ${formatMoney(interest.earnedPerYearCents, currency)} a year at today's balances (average ${formatBps(interest.weightedAssetRateBps)}).`,
+      );
+    }
+    if (interest.ratedLiabilityCents > 0) {
+      parts.push(
+        `Debts with a recorded rate total ${formatMoney(interest.ratedLiabilityCents, currency)} and cost about ${formatMoney(interest.costPerYearCents, currency)} a year in interest (average ${formatBps(interest.weightedLiabilityRateBps)}).`,
+      );
+    }
+    sections.push({ heading: "Interest", body: parts.join(" ").slice(0, 600) });
   }
   sections.push({
     heading: "Allocation band",

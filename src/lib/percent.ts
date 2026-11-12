@@ -32,3 +32,34 @@ export function formatBps(bps: number | null): string | null {
   const text = rem === 0 ? String(whole) : `${whole}.${String(rem).padStart(2, "0").replace(/0+$/, "")}`;
   return `${text}%`;
 }
+
+/** Largest annual interest rate an account may carry: 100%. */
+export const MAX_ANNUAL_RATE_BPS = 10_000;
+
+export function isValidAnnualRateBps(bps: number | null): boolean {
+  return bps === null || (Number.isSafeInteger(bps) && bps >= 0 && bps <= MAX_ANNUAL_RATE_BPS);
+}
+
+/**
+ * Parse an optional annual rate typed as a percent ("3.5") into basis points.
+ * Blank means "not recorded" and returns null. No float math.
+ */
+export function parseAnnualRatePercent(
+  input: string,
+): { ok: true; bps: number | null } | { ok: false; error: string } {
+  const text = input.trim();
+  if (text === "") return { ok: true, bps: null };
+  const match = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(text);
+  if (!match) {
+    return { ok: false, error: "Enter a rate from 0 to 100 with up to 2 decimal places, like 3.5." };
+  }
+  const bps = Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
+  if (bps > MAX_ANNUAL_RATE_BPS) return { ok: false, error: "Enter a rate of 100 or less." };
+  return { ok: true, bps };
+}
+
+/** Basis points back to the percent text a rate input shows ("350" → "3.5"). Null → "". */
+export function bpsToPercentInput(bps: number | null): string {
+  if (bps === null) return "";
+  return (formatBps(bps) ?? "").replace(/%$/, "");
+}

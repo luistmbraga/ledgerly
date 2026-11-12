@@ -403,7 +403,7 @@ describe("buildFinancialSnapshot", () => {
       }),
     );
 
-    expect(snapshot.version).toBe("2026-11-09");
+    expect(snapshot.version).toBe("2026-11-12");
     expect(snapshot.netWorth.netWorthCents).toBe(210_000);
     expect(snapshot.cashflow).toMatchObject({
       trailingMonths: 3,
@@ -479,5 +479,135 @@ describe("buildFinancialSnapshot", () => {
       "goal_tight",
       "cash_concentration",
     ]);
+  });
+});
+
+describe("costly_debt", () => {
+  it("fires at or above 8% for a liability with a balance", () => {
+    const findings = buildFindings(
+      inputs({
+        liabilityRates: [
+          { name: "Card", balanceCents: 200_000, annualRateBps: 1_800 },
+          { name: "Car loan", balanceCents: 500_000, annualRateBps: 800 },
+          { name: "Mortgage", balanceCents: 10_000_000, annualRateBps: 350 },
+        ],
+      }),
+    );
+    const costly = findings.find((f) => f.id === "costly_debt");
+    expect(costly?.data).toMatchObject({
+      count: 2,
+      names: "Card, Car loan",
+      maxRateBps: 1_800,
+      balanceCents: 700_000,
+      costPerYearCents: 36_000 + 40_000,
+    });
+  });
+
+  it("ignores unknown rates, low rates and paid-off debts", () => {
+    expect(
+      ids({
+        liabilityRates: [
+          { name: "Unknown", balanceCents: 500_000, annualRateBps: null },
+          { name: "Low", balanceCents: 500_000, annualRateBps: 799 },
+          { name: "Paid", balanceCents: 0, annualRateBps: 2_000 },
+        ],
+      }),
+    ).not.toContain("costly_debt");
+  });
+
+  it("renders a template without advice beyond the what-if lever", () => {
+    const [tip] = renderTipTemplates(
+      buildFindings(
+        inputs({ liabilityRates: [{ name: "Card", balanceCents: 200_000, annualRateBps: 1_850 }] }),
+      ),
+    );
+    expect(tip.title).toBe("Costly debt");
+    expect(tip.body).toContain("18.5%");
+    expect(tip.body).toContain(formatMoney(37_000, "EUR"));
+  });
+});
+
+describe("idle_cash", () => {
+  const target = 600_000;
+
+  it("reports unrated cash above the emergency fund target", () => {
+    const findings = buildFindings(
+      inputs({
+        emergencyTargetCents: target,
+        cashAccounts: [
+          { name: "Current", balanceCents: 1_000_000, annualRateBps: null },
+          { name: "Savings", balanceCents: 300_000, annualRateBps: 250 },
+        ],
+      }),
+    );
+    // Total 1_300_000, 700_000 above target; idle 1_000_000 → 700_000 counts.
+    expect(findings.find((f) => f.id === "idle_cash")?.data).toMatchObject({
+      idleAboveTargetCents: 700_000,
+      names: "Current",
+    });
+  });
+
+  it("limits the reported amount to the idle cash", () => {
+    const findings = buildFindings(
+      inputs({
+        emergencyTargetCents: target,
+        cashAccounts: [
+          { name: "Current", balanceCents: 200_000, annualRateBps: 0 },
+          { name: "Savings", balanceCents: 2_000_000, annualRateBps: 250 },
+        ],
+      }),
+    );
+    expect(findings.find((f) => f.id === "idle_cash")?.data.idleAboveTargetCents).toBe(200_000);
+  });
+
+  it("stays quiet when cash is within the target or idle cash is small", () => {
+    expect(
+      ids({
+        emergencyTargetCents: target,
+        cashAccounts: [{ name: "Current", balanceCents: 600_000, annualRateBps: null }],
+      }),
+    ).not.toContain("idle_cash");
+    expect(
+      ids({
+        emergencyTargetCents: target,
+        cashAccounts: [{ name: "Current", balanceCents: 650_000, annualRateBps: null }],
+      }),
+    ).not.toContain("idle_cash");
+  });
+
+  it("needs a positive emergency fund target", () => {
+    expect(
+      ids({
+        emergencyTargetCents: 0,
+        cashAccounts: [{ name: "Current", balanceCents: 5_000_000, annualRateBps: null }],
+      }),
+    ).not.toContain("idle_cash");
+  });
+});
+
+describe("snapshot interest block", () => {
+  it("summarizes recorded rates and feeds the detectors", () => {
+    const snapshot = buildFinancialSnapshot(
+      snapshotInput({
+        interestAssets: [
+          { name: "Savings", balanceCents: 1_000_000, annualRateBps: 300, isCash: true },
+          { name: "Current", balanceCents: 2_000_000, annualRateBps: null, isCash: true },
+        ],
+        interestLiabilities: [{ name: "Card", balanceCents: 100_000, annualRateBps: 2_000 }],
+      }),
+    );
+    expect(snapshot.interest).toMatchObject({
+      earnedPerYearCents: 30_000,
+      ratedAssetCents: 1_000_000,
+      weightedAssetRateBps: 300,
+      costPerYearCents: 20_000,
+    });
+    expect(snapshot.findings.map((f) => f.id)).toContain("costly_debt");
+  });
+
+  it("is all zeros when no rates are recorded", () => {
+    const snapshot = buildFinancialSnapshot(snapshotInput());
+    expect(snapshot.interest.earnedPerYearCents).toBe(0);
+    expect(snapshot.interest.weightedAssetRateBps).toBeNull();
   });
 });

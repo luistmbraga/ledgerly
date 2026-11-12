@@ -90,6 +90,7 @@ export default async function WhatIfPage({
   const { baseline: now, scenario, diff } = runWhatIf(baseline, adjustments);
   const money = (cents: number) => formatMoney(cents, currency);
   const hasSurplusData = context.surplusSource !== "none";
+  const hasRated = (context.baseline.ratedBalances ?? []).length > 0;
   const hasEssentialSpend = baseline.essentialMonthlyAverageCents > 0;
   const debt = adjustments.debt;
   const debtLiability = context.liabilities.find(
@@ -321,6 +322,7 @@ export default async function WhatIfPage({
               Projection
             </Link>{" "}
             page.
+            {hasRated ? " Accounts with a recorded interest rate grow at that rate." : ""}
           </p>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm">
@@ -332,6 +334,7 @@ export default async function WhatIfPage({
                       {label}
                       <span className="block text-xs font-normal text-stone-400">
                         {returnBps === 0 ? "0% return" : `${formatBps(returnBps)}/yr`}
+                        {hasRated ? " on the rest" : ""}
                       </span>
                     </th>
                   ))}

@@ -23,7 +23,7 @@ Let the user perturb today's figures ("salary +10%", "cut spending 10%", "overpa
 - Saved or named scenarios; comparing several scenarios side by side.
 - Re-running findings, allocation bands or the briefing under a scenario.
 - AI narration of scenarios.
-- Storing an interest rate or term on liabilities; debt payoff dates.
+- Storing an interest rate or term on liabilities; debt payoff dates. (Slice 22 later added an optional stored rate; terms and payoff dates stay out of scope.)
 - Inflation or tax modelling.
 - Changing essential spend or the emergency-fund target.
 

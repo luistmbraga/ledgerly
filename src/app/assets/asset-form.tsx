@@ -10,6 +10,7 @@ import {
 } from "@/domain/allocation";
 import { ASSET_TYPES, type AssetType } from "@/domain/net-worth";
 import { useState } from "react";
+import { RateField } from "@/components/rate-field";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionState } from "@/lib/action-state";
 import { ASSET_TYPE_DESCRIPTIONS, ASSET_TYPE_LABELS } from "./labels";
@@ -31,6 +32,7 @@ type AssetFormProps = {
     isLiquid: boolean;
     includeInAllocation: boolean;
     sleevePercents: AllocationPercents;
+    annualRate: string;
     notes: string;
   };
 };
@@ -141,6 +143,14 @@ export function AssetForm({
           <p className="text-sm text-stone-600">{ASSET_TYPE_DESCRIPTIONS[type]}</p>
         )}
       </div>
+
+      <RateField
+        id={fieldId(id, "annual-rate")}
+        label="Annual interest rate (%)"
+        hint="Interest this account earns, e.g. a savings or deposit rate. Leave blank if it has none or you do not know it."
+        defaultValue={state?.values?.annualRate ?? defaults?.annualRate ?? ""}
+        error={e.annualRate}
+      />
 
       <div className="flex flex-col gap-1">
         <label htmlFor={fieldId(id, "notes")} className="text-sm font-medium">

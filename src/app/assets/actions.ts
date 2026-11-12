@@ -20,6 +20,7 @@ import {
 } from "@/db/repositories/snapshots";
 import { isValidIsoDate } from "@/lib/dates";
 import { parseMoneyToCents } from "@/lib/money";
+import { parseAnnualRatePercent } from "@/lib/percent";
 import type { ActionState } from "@/lib/action-state";
 
 function readId(formData: FormData): number | null {
@@ -64,6 +65,7 @@ function validateAssetFields(formData: FormData): {
     isLiquid: boolean;
     includeInAllocation: boolean;
     sleevePercents: AllocationPercents;
+    annualRateBps: number | null;
     notes: string | null;
   };
 } {
@@ -91,6 +93,9 @@ function validateAssetFields(formData: FormData): {
     errors.sleeves = "Cash assets stay 100% in the cash sleeve.";
   }
 
+  const rate = parseAnnualRatePercent(String(formData.get("annualRate") ?? ""));
+  if (!rate.ok) errors.annualRate = rate.error;
+
   const notesRaw = String(formData.get("notes") ?? "").trim();
   if (notesRaw.length > 2000) errors.notes = "Notes must be 2000 characters or fewer.";
 
@@ -104,6 +109,7 @@ function validateAssetFields(formData: FormData): {
       isLiquid: formData.get("isLiquid") === "1",
       includeInAllocation: formData.get("includeInAllocation") === "1",
       sleevePercents,
+      annualRateBps: rate.ok ? rate.bps : null,
       notes: notesRaw.length === 0 ? null : notesRaw,
     },
   };
@@ -155,6 +161,7 @@ export async function updateAssetAction(
   if (!updated) redirect("/assets?error=" + encodeURIComponent("Asset not found."));
   revalidatePath(`/assets/${id}`);
   revalidatePath("/assets");
+  revalidatePath("/projection");
   revalidatePath("/");
   redirect(`/assets/${id}?saved=updated`);
 }

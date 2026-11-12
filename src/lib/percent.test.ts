@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatBps, formatRatio, ratioToVisualPercent } from "./percent";
+import {
+  bpsToPercentInput,
+  formatBps,
+  formatRatio,
+  parseAnnualRatePercent,
+  ratioToVisualPercent,
+} from "./percent";
 
 describe("formatRatio", () => {
   it("returns null for null", () => expect(formatRatio(null)).toBeNull());
@@ -37,4 +43,30 @@ describe("formatBps", () => {
   it("formats 0 as '0%'", () => expect(formatBps(0)).toBe("0%"));
   it("formats 10000 as '100%'", () => expect(formatBps(10000)).toBe("100%"));
   it("formats 550 as '5.5%'", () => expect(formatBps(550)).toBe("5.5%"));
+});
+
+describe("parseAnnualRatePercent", () => {
+  it("treats blank as not recorded", () => expect(parseAnnualRatePercent("  ")).toEqual({ ok: true, bps: null }));
+  it("parses whole and decimal percents", () => {
+    expect(parseAnnualRatePercent("3")).toEqual({ ok: true, bps: 300 });
+    expect(parseAnnualRatePercent("2.5")).toEqual({ ok: true, bps: 250 });
+    expect(parseAnnualRatePercent("0.05")).toEqual({ ok: true, bps: 5 });
+    expect(parseAnnualRatePercent("0")).toEqual({ ok: true, bps: 0 });
+    expect(parseAnnualRatePercent("100")).toEqual({ ok: true, bps: 10_000 });
+  });
+  it("rejects bad input and rates above 100", () => {
+    for (const bad of ["-1", "abc", "1.234", "3%", "100.01", "1,5"]) {
+      expect(parseAnnualRatePercent(bad).ok).toBe(false);
+    }
+  });
+});
+
+describe("bpsToPercentInput", () => {
+  it("round-trips with the parser", () => {
+    for (const bps of [0, 5, 250, 300, 1_850, 10_000]) {
+      const parsed = parseAnnualRatePercent(bpsToPercentInput(bps));
+      expect(parsed).toEqual({ ok: true, bps });
+    }
+  });
+  it("is blank for null", () => expect(bpsToPercentInput(null)).toBe(""));
 });

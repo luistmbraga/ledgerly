@@ -5,6 +5,7 @@ import { getLiability } from "@/db/repositories/liabilities";
 import { listSnapshotsForLiability } from "@/db/repositories/snapshots";
 import { centsToDecimalInput, formatMoney } from "@/lib/money";
 import { todayUtc } from "@/lib/dates";
+import { bpsToPercentInput, formatBps } from "@/lib/percent";
 import { getDisplayCurrency } from "@/services/dashboard-summary";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { Flash } from "@/components/flash";
@@ -70,6 +71,9 @@ export default async function LiabilityDetailPage({
         </h1>
         <p className="mt-1 text-sm text-stone-600">
           {LIABILITY_TYPE_LABELS[liability.type]}
+          {liability.annualRateBps !== null
+            ? ` · ${formatBps(liability.annualRateBps)} a year`
+            : null}
         </p>
       </header>
 
@@ -215,6 +219,7 @@ export default async function LiabilityDetailPage({
               defaults={{
                 name: liability.name,
                 type: liability.type,
+                annualRate: bpsToPercentInput(liability.annualRateBps),
                 notes: liability.notes ?? "",
               }}
             />

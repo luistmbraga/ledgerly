@@ -51,6 +51,7 @@ Single row `id = 1`.
 | bonds_pct | integer | |
 | equities_pct | integer | |
 | other_pct | integer | Default 100 for new rows before form defaults apply. |
+| annual_rate_bps | integer nullable | Annual interest earned, 0–10000. Null = not recorded (slice 22). |
 | notes | text nullable | |
 | created_at | text | |
 | updated_at | text | |
@@ -66,6 +67,7 @@ Index: `(type)`.
 | id | integer PK | |
 | type | text | enum |
 | name | text | |
+| annual_rate_bps | integer nullable | Annual interest charged, 0–10000. Null = not recorded (slice 22). |
 | notes | text nullable | |
 | created_at | text | |
 | updated_at | text | |

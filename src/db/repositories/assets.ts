@@ -7,6 +7,7 @@ import {
   isAssetType,
   type AssetType,
 } from "@/domain/net-worth";
+import { isValidAnnualRateBps } from "@/lib/percent";
 import { db } from "../client";
 import { assets, valueSnapshots, type AssetRow } from "../schema";
 import { clearCashLinksForAsset } from "./cash-link";
@@ -22,6 +23,8 @@ export type AssetInput = {
   isLiquid: boolean;
   includeInAllocation: boolean;
   sleevePercents: AllocationPercents;
+  /** Annual interest rate in basis points; null or omitted when not recorded. */
+  annualRateBps?: number | null;
   notes: string | null;
 };
 
@@ -62,10 +65,14 @@ function assertAssetInput(input: AssetInput): AssetInput {
       invalid("Cash assets stay 100% in the cash sleeve.");
     }
   }
+  const annualRateBps = input.annualRateBps ?? null;
+  if (!isValidAnnualRateBps(annualRateBps)) {
+    invalid("Enter an annual rate from 0 to 100%.");
+  }
   if (input.notes !== null && input.notes.length > 2000) {
     invalid("Notes must be 2000 characters or fewer.");
   }
-  return { ...input, name };
+  return { ...input, name, annualRateBps };
 }
 
 function asAsset(row: AssetRow): AssetRecord {
@@ -104,6 +111,7 @@ export function createAsset(input: AssetInput): AssetRecord {
       bondsPct: value.sleevePercents.bonds,
       equitiesPct: value.sleevePercents.equities,
       otherPct: value.sleevePercents.other,
+      annualRateBps: value.annualRateBps,
       notes: value.notes,
       createdAt: now,
       updatedAt: now,
@@ -130,6 +138,7 @@ export function updateAsset(
       bondsPct: value.sleevePercents.bonds,
       equitiesPct: value.sleevePercents.equities,
       otherPct: value.sleevePercents.other,
+      annualRateBps: value.annualRateBps,
       notes: value.notes,
       updatedAt: new Date().toISOString(),
     })

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/money";
+import { formatBps } from "@/lib/percent";
 import type { WhatIfLiability } from "./load";
 import type { WhatIfField, WhatIfFormValues, WhatIfMode } from "./parse-params";
 
@@ -168,7 +169,11 @@ export function WhatIfForm({
                 <option value="">None</option>
                 {payable.map((liability) => (
                   <option key={liability.id} value={liability.id}>
-                    {liability.name} ({formatMoney(liability.balanceCents, currency)})
+                    {liability.name} ({formatMoney(liability.balanceCents, currency)}
+                    {liability.annualRateBps !== null
+                      ? ` · ${formatBps(liability.annualRateBps)}`
+                      : ""}
+                    )
                   </option>
                 ))}
               </select>
@@ -195,7 +200,7 @@ export function WhatIfForm({
             <Field
               id="what-if-rate"
               label="Annual interest rate (%)"
-              hint="Used for this what-if only. It is not saved."
+              hint="Blank uses the liability's saved rate, if any. A rate typed here is not saved."
               error={errors.rate}
             >
               <input

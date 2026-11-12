@@ -12,6 +12,8 @@ import {
   formatDriftPp,
   formatWholePercent,
 } from "../display";
+import type { InterestSummary } from "@/domain/interest";
+import { formatBps } from "@/lib/percent";
 import { briefingFallback, type BriefingOutput } from "../fallbacks";
 import { loadFinancialSnapshot } from "../load-snapshot";
 import {
@@ -27,7 +29,23 @@ export type BriefingRequest = {
   decision: BriefingDecision;
   snapshotNetWorthCents: number;
   currency: string;
+  /** Yearly interest from recorded rates. Omitted or null when none are recorded. */
+  interest?: InterestSummary | null;
 };
+
+/** Formatted interest figures, or null when no account has a recorded rate and balance. */
+function formatInterest(interest: InterestSummary | null | undefined, currency: string) {
+  if (!interest) return null;
+  if (interest.ratedAssetCents === 0 && interest.ratedLiabilityCents === 0) return null;
+  return {
+    ratedAssets: formatCentsMoney(interest.ratedAssetCents, currency),
+    earnedPerYear: formatCentsMoney(interest.earnedPerYearCents, currency),
+    averageAssetRate: formatBps(interest.weightedAssetRateBps),
+    ratedDebts: formatCentsMoney(interest.ratedLiabilityCents, currency),
+    costPerYear: formatCentsMoney(interest.costPerYearCents, currency),
+    averageDebtRate: formatBps(interest.weightedLiabilityRateBps),
+  };
+}
 
 function formatMix(
   mix: BriefingDecision["targetBand"],
@@ -77,6 +95,7 @@ function contractInput(request: BriefingRequest) {
       request.snapshotNetWorthCents,
       currency,
     ),
+    interest: formatInterest(request.interest, currency),
     currency,
   };
 }
@@ -93,6 +112,7 @@ function quotableFrom(input: ReturnType<typeof contractInput>): unknown {
       shortGoalReserved: input.decision.shortGoalReserved,
     },
     snapshotNetWorth: input.snapshotNetWorth,
+    interest: input.interest,
     currency: input.currency,
   };
 }
@@ -167,6 +187,7 @@ export async function loadBriefing(asOfDate?: string, deps?: TaskDeps): Promise<
       decision,
       snapshotNetWorthCents: snapshot.netWorth.netWorthCents,
       currency: snapshot.currency,
+      interest: snapshot.interest,
     },
     deps,
   );

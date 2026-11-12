@@ -46,6 +46,8 @@ export const FINDING_GLOSS: Record<string, string> = {
   stale_snapshots: "one or more assets have not been updated recently",
   overspend_budget: "one or more expense categories have exceeded their monthly budget",
   budget_warning: "one or more expense categories are approaching their monthly budget limit",
+  costly_debt: "one or more debts carry a high recorded interest rate",
+  idle_cash: "cash above the emergency fund target sits in accounts with no recorded interest rate",
 };
 
 export const STATUS_GLOSS: Record<string, string> = {

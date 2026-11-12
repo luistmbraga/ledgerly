@@ -132,3 +132,51 @@ describe("computeRunway", () => {
     expect(result!.months).toBe(33333);
   });
 });
+
+describe("projectNetWorth with rated balances", () => {
+  it("matches the plain projection when no balances are rated", () => {
+    expect(projectNetWorth(500_000, 10_000, 700, [1, 10], [])).toEqual(
+      projectNetWorth(500_000, 10_000, 700, [1, 10]),
+    );
+  });
+
+  it("grows a rated balance at its own rate under a 0% scenario", () => {
+    // 1,200,000 at 12%/yr = 1%/month, no surplus. Rest is 0.
+    const [m] = projectNetWorth(1_200_000, 0, 0, [1], [
+      { balanceCents: 1_200_000, annualRateBps: 1_200 },
+    ]);
+    let b = 1_200_000;
+    for (let i = 0; i < 12; i++) b = Math.round(b * 1.01);
+    expect(m.netWorthCents).toBe(b);
+  });
+
+  it("keeps an explicit 0% balance flat under a growth scenario", () => {
+    const [m] = projectNetWorth(100_000, 0, 700, [5], [
+      { balanceCents: 100_000, annualRateBps: 0 },
+    ]);
+    expect(m.netWorthCents).toBe(100_000);
+  });
+
+  it("sends the surplus to the unrated rest", () => {
+    // Rated 100,000 at 0%; rest 0 receives 100/month at 0% → +1200 after a year.
+    const [m] = projectNetWorth(100_000, 100, 0, [1], [
+      { balanceCents: 100_000, annualRateBps: 0 },
+    ]);
+    expect(m.netWorthCents).toBe(101_200);
+  });
+
+  it("grows the rest at the scenario rate and rated balances at theirs", () => {
+    const [m] = projectNetWorth(200_000, 0, 1_200, [1], [
+      { balanceCents: 100_000, annualRateBps: 0 },
+    ]);
+    let rest = 100_000;
+    for (let i = 0; i < 12; i++) rest = Math.round(rest * 1.01);
+    expect(m.netWorthCents).toBe(100_000 + rest);
+  });
+
+  it("throws ValidationError for a negative rated rate", () => {
+    expect(() =>
+      projectNetWorth(0, 0, 0, [1], [{ balanceCents: 1, annualRateBps: -1 }]),
+    ).toThrow(expect.objectContaining({ name: "ValidationError" }));
+  });
+});

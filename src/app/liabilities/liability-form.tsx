@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { LIABILITY_TYPES } from "@/domain/net-worth";
+import { RateField } from "@/components/rate-field";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionState } from "@/lib/action-state";
 import { LIABILITY_TYPE_LABELS } from "./labels";
@@ -13,6 +14,7 @@ type LiabilityFormProps = {
   defaults?: {
     name: string;
     type: string;
+    annualRate: string;
     notes: string;
   };
 };
@@ -82,6 +84,14 @@ export function LiabilityForm({
           </p>
         ) : null}
       </div>
+
+      <RateField
+        id={fieldId(id, "annual-rate")}
+        label="Annual interest rate (%)"
+        hint="The rate you are charged, e.g. the loan APR or TAN. Leave blank if you do not know it."
+        defaultValue={state?.values?.annualRate ?? defaults?.annualRate ?? ""}
+        error={e.annualRate}
+      />
 
       <div className="flex flex-col gap-1">
         <label htmlFor={fieldId(id, "notes")} className="text-sm font-medium">

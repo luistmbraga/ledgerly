@@ -57,7 +57,7 @@ Desktop-first responsive layout. Primary navigation: persistent sidebar (collaps
 
 ## Assets `/assets`
 
-**List:** name, type, latest value, last updated date.
+**List:** name, type (with the annual rate when recorded), latest value, last updated date.
 
 **Actions:** Add asset, open detail.
 
@@ -67,6 +67,7 @@ Desktop-first responsive layout. Primary navigation: persistent sidebar (collaps
 - Snapshot history table
 - Form: new snapshot (date, amount, note)
 - Flags: Liquid (emergency fund), Count in investment mix
+- Optional "Annual interest rate (%)" (blank = not recorded). The header shows "earns X% a year" when set.
 - Edit name/type, delete asset
 
 **Empty list:** Explain that snapshots drive net worth.
@@ -75,7 +76,7 @@ Desktop-first responsive layout. Primary navigation: persistent sidebar (collaps
 
 ## Liabilities `/liabilities`
 
-Mirror assets pattern without liquid/allocation flags.
+Mirror assets pattern without liquid/allocation flags. Optional "Annual interest rate (%)" field; the rate shows on the list and detail header.
 
 ---
 
@@ -140,7 +141,7 @@ Read-only sandbox. Nothing on this screen is saved.
 
 - Monthly income change and monthly spending change: signed amount per month, or percent when three full journal months exist
 - One-off amount: plus for a windfall, minus for a purchase
-- Extra debt payment: liability, extra per month, annual interest rate (typed for the what-if only)
+- Extra debt payment: liability, extra per month, annual interest rate. A blank rate uses the liability's recorded rate; a typed rate is used for the what-if only and not saved.
 - "Run what-if" and "Reset"
 
 **Shows:** current figure next to the what-if figure for surplus left to allocate, savings rate, net worth today, emergency fund gap and close date, each goal's status, the net worth projection table (same horizons and return assumptions as Projection), estimated interest avoided, and runway.
@@ -148,6 +149,14 @@ Read-only sandbox. Nothing on this screen is saved.
 **Marker rule:** every what-if figure is rendered by `ScenarioFigure` (amber dashed box with a "What-if" tag). A persistent note at the top says the screen is hypothetical.
 
 **Empty and error states:** no changes entered → current figures only. Invalid field → inline message, typed text kept, current figures only. No liabilities with a balance → debt lever hidden. No goals → goals block hidden.
+
+---
+
+## Projection `/projection` — account interest (slice 22)
+
+- Assumptions card adds "Accounts with a recorded rate": total, average rate and about how much a year. With none, it links to Assets.
+- When any asset has a rate, scenario headers read "… on the rest" and the intro says rated accounts grow at their own rate in every scenario.
+- Footnote when rated: rates can change, and interest also logged as income is counted twice.
 
 ---
 

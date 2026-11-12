@@ -4,7 +4,8 @@ import { ratio } from "./cashflow";
 import { ALLOCATION_SLEEVES, type AllocationPercents } from "./allocation";
 import { isoDateToDayNumber } from "../lib/dates";
 import { formatMoney } from "../lib/money";
-import { formatRatio } from "../lib/percent";
+import { formatBps, formatRatio } from "../lib/percent";
+import { yearlyInterestCents } from "./interest";
 
 export type FindingSeverity = "info" | "warn";
 
@@ -46,6 +47,11 @@ export type FindingsInput = {
   assetSnapshots?: ReadonlyArray<{ name: string; latestRecordedOn: string | null }>;
   asOf?: string;
   budgetStatuses?: ReadonlyArray<BudgetStatus>;
+  /** Liabilities with their latest balance and recorded rate (null = not recorded). */
+  liabilityRates?: ReadonlyArray<{ name: string; balanceCents: number; annualRateBps: number | null }>;
+  /** Cash-type assets with their latest balance and recorded rate. */
+  cashAccounts?: ReadonlyArray<{ name: string; balanceCents: number; annualRateBps: number | null }>;
+  emergencyTargetCents?: number;
 };
 
 const LOW_SAVINGS_RATE = 0.1;
@@ -55,6 +61,10 @@ const ALLOCATION_DRIFT_PP = 10;
 const CASH_CONCENTRATION_RATIO = 0.6;
 const LIABILITY_RATIO_THRESHOLD = 0.5;
 const STALE_SNAPSHOT_DAYS = 90;
+/** A liability at or above this annual rate is reported as costly debt. */
+export const COSTLY_DEBT_RATE_BPS = 800;
+/** Idle cash above the emergency fund target must exceed this to be reported. */
+export const IDLE_CASH_MIN_CENTS = 100_000;
 
 function goalsWithStatus(input: FindingsInput, status: GoalStatus): string[] {
   return input.goals
@@ -303,6 +313,59 @@ export function buildFindings(snapshotInputs: FindingsInput): Finding[] {
     }
   }
 
+  if (snapshotInputs.liabilityRates) {
+    const costly = snapshotInputs.liabilityRates.filter(
+      (l) => l.balanceCents > 0 && l.annualRateBps !== null && l.annualRateBps >= COSTLY_DEBT_RATE_BPS,
+    );
+    if (costly.length > 0) {
+      findings.push({
+        id: "costly_debt",
+        severity: "warn",
+        data: {
+          count: costly.length,
+          names: costly.map((l) => l.name).join(", "),
+          maxRateBps: Math.max(...costly.map((l) => l.annualRateBps ?? 0)),
+          balanceCents: costly.reduce((sum, l) => sum + l.balanceCents, 0),
+          costPerYearCents: costly.reduce(
+            (sum, l) => sum + yearlyInterestCents(l.balanceCents, l.annualRateBps ?? 0),
+            0,
+          ),
+          currency: snapshotInputs.currency,
+        },
+      });
+    }
+  }
+
+  const { cashAccounts, emergencyTargetCents } = snapshotInputs;
+  if (cashAccounts && emergencyTargetCents !== undefined && emergencyTargetCents > 0) {
+    let totalCash = 0;
+    let idleCash = 0;
+    const idleNames: string[] = [];
+    for (const account of cashAccounts) {
+      if (account.balanceCents <= 0) continue;
+      totalCash += account.balanceCents;
+      if (account.annualRateBps === null || account.annualRateBps === 0) {
+        idleCash += account.balanceCents;
+        idleNames.push(account.name);
+      }
+    }
+    // Cash up to the target is the emergency fund; only idle cash beyond it counts.
+    const idleAboveTargetCents = Math.min(idleCash, Math.max(0, totalCash - emergencyTargetCents));
+    if (idleAboveTargetCents > IDLE_CASH_MIN_CENTS) {
+      findings.push({
+        id: "idle_cash",
+        severity: "info",
+        data: {
+          idleAboveTargetCents,
+          idleCashCents: idleCash,
+          emergencyTargetCents,
+          names: idleNames.join(", "),
+          currency: snapshotInputs.currency,
+        },
+      });
+    }
+  }
+
   return findings;
 }
 
@@ -400,6 +463,18 @@ const TEMPLATES: Record<string, { title: string; body: (data: FindingData) => st
       const count = typeof data.count === "number" ? data.count : 0;
       return `${count} ${count === 1 ? "category has" : "categories have"} exceeded the monthly budget this month: ${data.names}.`;
     },
+  },
+  costly_debt: {
+    title: "Costly debt",
+    body: (data) => {
+      const rate = typeof data.maxRateBps === "number" ? formatBps(data.maxRateBps) : "n/a";
+      return `${data.names} ${data.count === 1 ? "charges" : "charge up to"} ${rate} a year, about ${moneyText(data, "costPerYearCents")} in interest a year at today's balance. The What-if screen shows what paying more each month would change.`;
+    },
+  },
+  idle_cash: {
+    title: "Cash earning no interest",
+    body: (data) =>
+      `About ${moneyText(data, "idleAboveTargetCents")} of cash above your emergency fund target sits in accounts with no recorded interest rate (${data.names}). If an account does earn interest, record its rate so projections include it.`,
   },
   budget_warning: {
     title: "Approaching budget limit",

@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { isLiabilityType, type LiabilityType } from "@/domain/net-worth";
+import { isValidAnnualRateBps } from "@/lib/percent";
 import { db } from "../client";
 import { liabilities, valueSnapshots, type LiabilityRow } from "../schema";
 
@@ -8,6 +9,8 @@ export type LiabilityRecord = LiabilityRow & { type: LiabilityType };
 export type LiabilityInput = {
   name: string;
   type: LiabilityType;
+  /** Annual interest rate in basis points; null or omitted when not recorded. */
+  annualRateBps?: number | null;
   notes: string | null;
 };
 
@@ -25,10 +28,14 @@ function assertLiabilityInput(input: LiabilityInput): LiabilityInput {
   if (!isLiabilityType(input.type)) {
     invalid("Choose a valid liability type.");
   }
+  const annualRateBps = input.annualRateBps ?? null;
+  if (!isValidAnnualRateBps(annualRateBps)) {
+    invalid("Enter an annual rate from 0 to 100%.");
+  }
   if (input.notes !== null && input.notes.length > 2000) {
     invalid("Notes must be 2000 characters or fewer.");
   }
-  return { ...input, name };
+  return { ...input, name, annualRateBps };
 }
 
 function asLiability(row: LiabilityRow): LiabilityRecord {
@@ -55,6 +62,7 @@ export function createLiability(input: LiabilityInput): LiabilityRecord {
     .values({
       name: value.name,
       type: value.type,
+      annualRateBps: value.annualRateBps,
       notes: value.notes,
       createdAt: now,
       updatedAt: now,
@@ -75,6 +83,7 @@ export function updateLiability(
     .set({
       name: value.name,
       type: value.type,
+      annualRateBps: value.annualRateBps,
       notes: value.notes,
       updatedAt: new Date().toISOString(),
     })

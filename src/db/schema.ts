@@ -38,6 +38,8 @@ export const assets = sqliteTable(
     bondsPct: integer("bonds_pct").notNull().default(0),
     equitiesPct: integer("equities_pct").notNull().default(0),
     otherPct: integer("other_pct").notNull().default(100),
+    /** Annual interest earned, basis points. Null = not recorded. */
+    annualRateBps: integer("annual_rate_bps"),
     notes: text("notes"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -55,6 +57,8 @@ export const liabilities = sqliteTable("liabilities", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   type: text("type").notNull(),
   name: text("name").notNull(),
+  /** Annual interest charged, basis points. Null = not recorded. */
+  annualRateBps: integer("annual_rate_bps"),
   notes: text("notes"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

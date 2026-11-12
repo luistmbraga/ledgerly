@@ -18,9 +18,10 @@ import {
   type AllocationPercents,
 } from "./allocation";
 import type { AssetType, NetWorthResult } from "./net-worth";
+import { summarizeInterest, type InterestAccount, type InterestSummary } from "./interest";
 
 /** Bump when formulas change so later AI cache keys can invalidate. */
-export const DOMAIN_VERSION = "2026-11-09";
+export const DOMAIN_VERSION = "2026-11-12";
 
 export type SnapshotCategory = {
   id: number;
@@ -102,6 +103,8 @@ export type FinancialSnapshot = {
     emergencyReservedCents: number;
     shortGoalReservedCents: number;
   };
+  /** Simple yearly interest from recorded account rates at today's balances. */
+  interest: InterestSummary;
   findings: Finding[];
   categories: SnapshotCategory[];
 };
@@ -124,6 +127,9 @@ export type FinancialSnapshotInput = {
   assetSnapshotDates?: ReadonlyArray<{ name: string; latestRecordedOn: string | null }>;
   /** MTD budget statuses for expense categories that have a budget set. */
   budgetStatuses?: ReadonlyArray<BudgetStatus>;
+  /** Assets with latest balance and recorded rate. `isCash` marks cash-type assets. */
+  interestAssets?: ReadonlyArray<InterestAccount & { isCash: boolean }>;
+  interestLiabilities?: readonly InterestAccount[];
 };
 
 /** Inclusive span of the last three full calendar months before `asOf`. */
@@ -278,7 +284,15 @@ export function buildFinancialSnapshot(
     assetSnapshots: input.assetSnapshotDates,
     asOf: input.asOf,
     budgetStatuses: input.budgetStatuses,
+    liabilityRates: input.interestLiabilities,
+    cashAccounts: input.interestAssets?.filter((a) => a.isCash),
+    emergencyTargetCents: input.emergencyFund.targetCents,
   });
+
+  const interest = summarizeInterest(
+    input.interestAssets ?? [],
+    input.interestLiabilities ?? [],
+  );
 
   return {
     version: DOMAIN_VERSION,
@@ -313,6 +327,7 @@ export function buildFinancialSnapshot(
       emergencyReservedCents: investable.emergencyReservedCents,
       shortGoalReservedCents: investable.shortGoalReservedCents,
     },
+    interest,
     findings,
     categories: [...input.categories],
   };

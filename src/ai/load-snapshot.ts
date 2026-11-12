@@ -192,5 +192,16 @@ export function loadFinancialSnapshot(asOfDate?: string): FinancialSnapshot {
       name: asset.name,
       latestRecordedOn: latestByAsset.get(asset.id)?.recordedOn ?? null,
     })),
+    interestAssets: assets.map((asset) => ({
+      name: asset.name,
+      balanceCents: latestByAsset.get(asset.id)?.amountCents ?? 0,
+      annualRateBps: asset.annualRateBps,
+      isCash: asset.type === "cash",
+    })),
+    interestLiabilities: liabilities.map((liability) => ({
+      name: liability.name,
+      balanceCents: latestByLiability.get(liability.id)?.amountCents ?? 0,
+      annualRateBps: liability.annualRateBps,
+    })),
   });
 }

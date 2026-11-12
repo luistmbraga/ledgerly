@@ -6,6 +6,7 @@ const CONTEXT: WhatIfParseContext = {
   liabilities: [
     { id: 7, balanceCents: 12_000_000 },
     { id: 8, balanceCents: 0 },
+    { id: 9, balanceCents: 500_000, annualRateBps: 1_850 },
   ],
 };
 
@@ -125,5 +126,20 @@ describe("parseWhatIfParams", () => {
   it("uses the first value of a repeated parameter", () => {
     const result = parseWhatIfParams({ oneoff: ["100", "999"] }, CONTEXT);
     expect(result.adjustments?.oneOffCents).toBe(10_000);
+  });
+
+  it("uses the liability's saved rate when no rate is typed", () => {
+    const result = parseWhatIfParams({ debt: "9", extra: "100" }, CONTEXT);
+    expect(result.errors).toEqual({});
+    expect(result.adjustments?.debt).toEqual({
+      balanceCents: 500_000,
+      extraMonthlyCents: 10_000,
+      annualRateBps: 1_850,
+    });
+  });
+
+  it("lets a typed rate override the saved one", () => {
+    const result = parseWhatIfParams({ debt: "9", extra: "100", rate: "5" }, CONTEXT);
+    expect(result.adjustments?.debt?.annualRateBps).toBe(500);
   });
 });

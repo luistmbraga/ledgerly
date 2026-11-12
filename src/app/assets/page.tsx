@@ -7,6 +7,7 @@ import { Flash } from "@/components/flash";
 import { createAssetAction } from "./actions";
 import { AssetForm } from "./asset-form";
 import { ASSET_TYPE_LABELS, formatIsoDate } from "./labels";
+import { formatBps } from "@/lib/percent";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -75,6 +76,11 @@ export default async function AssetsPage({
                     </td>
                     <td className="py-3 pr-4 text-stone-700">
                       {ASSET_TYPE_LABELS[asset.type]}
+                      {asset.annualRateBps !== null ? (
+                        <span className="ml-1 text-stone-500">
+                          · {formatBps(asset.annualRateBps)}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="py-3 pr-4">
                       {formatMoney(latest?.amountCents ?? 0, currency)}

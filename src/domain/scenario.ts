@@ -8,9 +8,12 @@ import {
 import {
   SCENARIOS,
   computeRunway,
+  netWorthOf,
   projectEmergencyFundClose,
   projectNetWorth,
-  stepBalance,
+  startNetWorthState,
+  stepNetWorth,
+  type RatedBalance,
   type EmergencyFundCloseResult,
   type NetWorthMilestone,
   type RunwayResult,
@@ -50,6 +53,8 @@ export type WhatIfBaseline = {
   essentialMonthlyAverageCents: number;
   emergencyFund: { targetCents: number; eligibleCents: number };
   goals: readonly WhatIfGoalInput[];
+  /** Asset balances with a recorded rate; they grow at that rate in every projection. */
+  ratedBalances?: readonly RatedBalance[];
 };
 
 export type WhatIfAdjustments = {
@@ -227,6 +232,8 @@ export function applyAdjustments(
       ),
     },
     goals: baseline.goals.map((goal) => ({ ...goal })),
+    // A one-off amount lands in the unrated rest of net worth.
+    ratedBalances: (baseline.ratedBalances ?? []).map((r) => ({ ...r })),
     debt: debt === null ? null : { ...debt },
   };
 }
@@ -245,7 +252,7 @@ function savingsRateOf(inputs: WhatIfInputs): number | null {
  * compounds at the debt rate (less principal means less interest) and is capped
  * at the current balance. Until the cap, the extra payment comes out of the
  * invested surplus; after it, the full surplus is invested again.
- * Net worth = invested balance + reduction.
+ * Net worth = projected balance (rated accounts at their own rate) + reduction.
  */
 function simulateWithDebt(
   inputs: WhatIfInputs,
@@ -257,7 +264,7 @@ function simulateWithDebt(
   const maxMonths = Math.max(...WHAT_IF_HORIZON_YEARS) * 12;
   const targets = new Set<number>(WHAT_IF_HORIZON_YEARS.map((y) => y * 12));
 
-  let balance = inputs.netWorthCents;
+  let state = startNetWorthState(inputs.netWorthCents, inputs.ratedBalances ?? []);
   let reduction = 0;
   let extraPaid = 0;
   const milestones: NetWorthMilestone[] = [];
@@ -274,15 +281,11 @@ function simulateWithDebt(
       reduction = grown + payment;
       extraPaid += payment;
     }
-    balance = stepBalance(
-      balance,
-      investRate,
-      inputs.avgMonthlySurplusCents - payment,
-    );
+    state = stepNetWorth(state, investRate, inputs.avgMonthlySurplusCents - payment);
 
     if (targets.has(month)) {
       const years = month / 12;
-      milestones.push({ years, netWorthCents: balance + reduction });
+      milestones.push({ years, netWorthCents: netWorthOf(state) + reduction });
       debtMilestones.push({
         years,
         reductionCents: reduction,
@@ -334,6 +337,7 @@ export function computeWhatIfOutcome(inputs: WhatIfInputs): WhatIfOutcome {
             inputs.avgMonthlySurplusCents,
             returnBps,
             WHAT_IF_HORIZON_YEARS,
+            inputs.ratedBalances ?? [],
           ),
         };
       }

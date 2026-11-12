@@ -26,10 +26,12 @@ Pure business rules for Ledgerly. Implement these in TypeScript (`src/domain/`) 
 - `isLiquid`: boolean (counts toward emergency fund if true).
 - `includeInAllocation`: boolean (include in investment mix chart). Default true, except `real_estate`, `vehicle`, `receivable`, and `business`, which default to excluded.
 - `sleevePercents`: `{ cash, bonds, equities, other }` integers that sum to 100. When omitted, use the type defaults below. Cash assets stay locked at 100% cash.
+- `annualRateBps`: optional annual interest earned, 0–10000 bps. Null = not recorded; 0 = earns nothing (slice 22).
 
 ### Liability
 
 - `type`, `name`.
+- `annualRateBps`: optional annual interest charged, 0–10000 bps. Null = not recorded (slice 22).
 
 ### ValueSnapshot
 
@@ -384,6 +386,8 @@ Each finding has `id`, `severity` (`info` | `warn`), and `data` object. Template
 | `goal_shortfall` | any goal status `shortfall` |
 | `goal_tight` | any goal status `tight` |
 | `negative_surplus` | trailing 3m surplus &lt; 0 |
+| `costly_debt` | any liability with balance &gt; 0 and recorded rate ≥ 8% (800 bps). Data: names, highest rate, total balance, yearly cost |
+| `idle_cash` | emergency fund target &gt; 0 and `min(idle, max(0, cashTotal − target)) > 100000` cents, where `idle` is cash-type balances with no rate or 0% |
 
 ---
 
@@ -419,6 +423,30 @@ Implemented in `src/domain/scenario.ts`. A scenario is never persisted and never
   - interest avoided = `reduction − Σ payment`
 
 `reduction` is how much lower the debt is than it would otherwise be. It is capped at today's balance because the regular payment schedule is unknown; no payoff date is produced.
+
+---
+
+## Account interest (slice 22)
+
+Rates are user-entered and may be out of date. No compounding frequency, tax or rate history is modelled.
+
+**Yearly interest** (`src/domain/interest.ts`), per account with a recorded rate and a positive latest balance:
+
+- `yearly = round(balance × bps / 10000)`
+- Earned per year = Σ over rated assets; cost per year = Σ over rated liabilities.
+- Weighted rate = `round(Σ balance × bps / Σ balance)`, null when no rated balance. An explicit 0% counts.
+
+**Net worth projection** (`projectNetWorth` in `src/domain/projection.ts`):
+
+- Rated assets `R` = assets with a recorded rate and a balance &gt; 0. `rest₀ = netWorth − Σ R`.
+- Each month: every rated balance `b = round(b × (1 + rate/12))` (unchanged at 0%), then `rest = round(rest × (1 + scenarioReturn/12)) + surplus`.
+- Projected net worth = `rest + Σ b`. With no rated assets this is the original single-rate formula.
+- The surplus and any what-if one-off amount go to `rest`. Liability rates are not used in the projection (regular payments sit in spending; the schedule is unknown).
+- Known limitation: interest credited to an account that is also logged as income, or picked up by derived cashflow, is counted in both the rate and the surplus. The Projection screen says so.
+
+**What-if:** the same rated balances step the same way in every scenario path. With an extra debt payment and no typed rate, the liability's recorded rate is used.
+
+**Briefing:** the snapshot carries an `interest` block (the summary above). The AI may quote its formatted strings; it never computes interest.
 
 ---
 

@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { formatMoney } from "@/lib/money";
 import { todayUtc } from "@/lib/dates";
 import { getCashflowKpis, getDashboardSummary } from "@/services/dashboard-summary";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
+import { getAccountRates } from "@/services/interest-service";
+import { formatBps } from "@/lib/percent";
 import {
   SCENARIOS,
   computeRunway,
@@ -20,6 +23,8 @@ export default function ProjectionPage() {
   const summary = getDashboardSummary();
   const kpis = getCashflowKpis(asOfDate);
   const fund = getEmergencyFund(asOfDate);
+  const rates = getAccountRates();
+  const hasRated = rates.ratedBalances.length > 0;
 
   const { netWorth, currency } = summary;
   const surplus = kpis.avgMonthlySurplusCents;
@@ -35,6 +40,7 @@ export default function ProjectionPage() {
       surplus,
       returnBps,
       HORIZON_YEARS,
+      rates.ratedBalances,
     ),
   }));
 
@@ -82,6 +88,28 @@ export default function ProjectionPage() {
               <dt className="text-stone-500">Current net worth</dt>
               <dd className="font-medium">{formatMoney(netWorth.netWorthCents, currency)}</dd>
             </div>
+            <div className="flex gap-2">
+              <dt className="text-stone-500">Accounts with a recorded rate</dt>
+              <dd className="font-medium">
+                {hasRated ? (
+                  <>
+                    {formatMoney(rates.summary.ratedAssetCents, currency)}
+                    <span className="ml-1 text-xs font-normal text-stone-500">
+                      (average {formatBps(rates.summary.weightedAssetRateBps)}, about{" "}
+                      {formatMoney(rates.summary.earnedPerYearCents, currency)} a year)
+                    </span>
+                  </>
+                ) : (
+                  <span className="font-normal text-stone-600">
+                    None. Add an annual rate on an{" "}
+                    <Link href="/assets" className="underline">
+                      asset
+                    </Link>{" "}
+                    to grow it at that rate.
+                  </span>
+                )}
+              </dd>
+            </div>
             {hasEssentialSpend && (
               <div className="flex gap-2">
                 <dt className="text-stone-500">Essential monthly spend</dt>
@@ -109,6 +137,9 @@ export default function ProjectionPage() {
           <p className="mt-1 text-sm text-stone-600">
             Three return scenarios — conservative assumes savings only; balanced and
             growth add compound returns before inflation.
+            {hasRated
+              ? " Accounts with a recorded interest rate grow at that rate in every scenario; the scenario return applies to the rest."
+              : ""}
           </p>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm">
@@ -125,6 +156,7 @@ export default function ProjectionPage() {
                       {label}
                       <span className="block text-xs font-normal text-stone-400">
                         {returnBps === 0 ? "0% return" : `${returnBps / 100}%/yr`}
+                        {hasRated ? " on the rest" : ""}
                       </span>
                     </th>
                   ))}
@@ -160,6 +192,9 @@ export default function ProjectionPage() {
           <p className="mt-2 text-xs text-stone-500">
             Returns are not guaranteed. Projections do not account for inflation,
             taxes, or changes in spending.
+            {hasRated
+              ? " Interest rates can change. If credited interest is also logged as income, it is counted twice."
+              : ""}
           </p>
         </section>
 

@@ -37,9 +37,72 @@ export function stepBalance(
   return balanceCents + contributionCents;
 }
 
+/** An account balance that grows at its own recorded annual rate. */
+export type RatedBalance = {
+  balanceCents: number;
+  annualRateBps: number;
+};
+
+/**
+ * Net worth split for the projection: balances with a recorded rate, and the
+ * rest of net worth (which may be negative when liabilities exceed it).
+ */
+export type NetWorthState = {
+  restCents: number;
+  rated: readonly RatedBalance[];
+};
+
+function validationError(message: string): Error {
+  const e = new Error(message);
+  e.name = "ValidationError";
+  return e;
+}
+
+/** Split today's net worth into rated balances and the rest. */
+export function startNetWorthState(
+  netWorthCents: number,
+  rated: readonly RatedBalance[] = [],
+): NetWorthState {
+  let ratedTotal = 0;
+  for (const r of rated) {
+    if (r.balanceCents < 0) throw validationError("rated balanceCents must be non-negative");
+    if (r.annualRateBps < 0) throw validationError("rated annualRateBps must be non-negative");
+    ratedTotal += r.balanceCents;
+  }
+  return {
+    restCents: netWorthCents - ratedTotal,
+    rated: rated.map((r) => ({ ...r })),
+  };
+}
+
+/**
+ * One month for the whole net worth. Each rated balance grows at its own rate
+ * with no contribution; the rest grows at the scenario rate and receives the
+ * monthly contribution.
+ */
+export function stepNetWorth(
+  state: NetWorthState,
+  monthlyRate: number,
+  contributionCents: number,
+): NetWorthState {
+  return {
+    restCents: stepBalance(state.restCents, monthlyRate, contributionCents),
+    rated: state.rated.map((r) => ({
+      annualRateBps: r.annualRateBps,
+      balanceCents: stepBalance(r.balanceCents, r.annualRateBps / 10_000 / 12, 0),
+    })),
+  };
+}
+
+export function netWorthOf(state: NetWorthState): number {
+  return state.rated.reduce((sum, r) => sum + r.balanceCents, state.restCents);
+}
+
 /**
  * Project net worth at given year milestones for a single return assumption.
- * Per-month formula: balance = round(balance × (1 + monthlyRate)) + surplus.
+ * Rated balances compound at their own rate; the rest of net worth follows
+ * balance = round(balance × (1 + monthlyRate)) + surplus.
+ * With no rated balances this is the plain single-rate projection.
  * Zero return falls back to linear accumulation to avoid float noise.
  * Throws ValidationError for negative returnBps.
  */
@@ -48,24 +111,21 @@ export function projectNetWorth(
   avgMonthlySurplusCents: number,
   returnBps: number,
   horizonYears: readonly number[],
+  ratedBalances: readonly RatedBalance[] = [],
 ): NetWorthMilestone[] {
-  if (returnBps < 0) {
-    const e = new Error("returnBps must be non-negative");
-    e.name = "ValidationError";
-    throw e;
-  }
+  if (returnBps < 0) throw validationError("returnBps must be non-negative");
 
   const monthlyRate = returnBps / 10_000 / 12;
   const maxMonths = Math.max(...horizonYears) * 12;
   const targets = new Set(horizonYears.map((y) => y * 12));
 
-  let balance = currentNetWorthCents;
+  let state = startNetWorthState(currentNetWorthCents, ratedBalances);
   const milestones: NetWorthMilestone[] = [];
 
   for (let m = 1; m <= maxMonths; m++) {
-    balance = stepBalance(balance, monthlyRate, avgMonthlySurplusCents);
+    state = stepNetWorth(state, monthlyRate, avgMonthlySurplusCents);
     if (targets.has(m)) {
-      milestones.push({ years: m / 12, netWorthCents: balance });
+      milestones.push({ years: m / 12, netWorthCents: netWorthOf(state) });
     }
   }
 

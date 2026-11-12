@@ -5,11 +5,14 @@ import { listLiabilities } from "@/db/repositories/liabilities";
 import { getLatestSnapshotsByLiabilityIds } from "@/db/repositories/snapshots";
 import { getCashflowKpis, getDashboardSummary } from "@/services/dashboard-summary";
 import { getEmergencyFund } from "@/services/emergency-fund-service";
+import { getAccountRates } from "@/services/interest-service";
 
 export type WhatIfLiability = {
   id: number;
   name: string;
   balanceCents: number;
+  /** Recorded annual rate; the form uses it when no rate is typed. */
+  annualRateBps: number | null;
 };
 
 export type WhatIfContext = {
@@ -55,6 +58,7 @@ export function loadWhatIfContext(asOfDate: string): WhatIfContext {
         plannedMonthlyCents: goal.plannedMonthlyCents,
         expectedAnnualReturnBps: goal.expectedAnnualReturnBps,
       })),
+      ratedBalances: getAccountRates().ratedBalances,
     },
     surplusSource: fund.surplusSource,
     surplusConfidence: fund.surplusConfidence,
@@ -64,6 +68,7 @@ export function loadWhatIfContext(asOfDate: string): WhatIfContext {
       id: liability.id,
       name: liability.name,
       balanceCents: latestByLiability.get(liability.id)?.amountCents ?? 0,
+      annualRateBps: liability.annualRateBps,
     })),
   };
 }

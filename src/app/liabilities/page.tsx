@@ -8,6 +8,7 @@ import { createLiabilityAction } from "./actions";
 import { LiabilityForm } from "./liability-form";
 import { LIABILITY_TYPE_LABELS } from "./labels";
 import { formatIsoDate } from "../assets/labels";
+import { formatBps } from "@/lib/percent";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -79,6 +80,11 @@ export default async function LiabilitiesPage({
                     </td>
                     <td className="py-3 pr-4 text-stone-700">
                       {LIABILITY_TYPE_LABELS[liability.type]}
+                      {liability.annualRateBps !== null ? (
+                        <span className="ml-1 text-stone-500">
+                          · {formatBps(liability.annualRateBps)}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="py-3 pr-4">
                       {formatMoney(latest?.amountCents ?? 0, currency)}
