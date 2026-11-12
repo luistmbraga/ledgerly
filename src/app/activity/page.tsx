@@ -102,6 +102,8 @@ export default async function ActivityPage({
   const saved =
     params.saved === "recurring-posted"
       ? postedMessage(countParam(params.posted), countParam(params.unlinked))
+      : params.saved === "recurring-suggested"
+        ? `${countParam(params.posted)} recurring ${countParam(params.posted) === 1 ? "entry" : "entries"} created from your history.`
       : params.saved
         ? SAVED[params.saved]
         : undefined;

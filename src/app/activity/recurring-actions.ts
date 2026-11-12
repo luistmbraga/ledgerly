@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   createTemplate,
+  createTemplatesFromSuggestions,
   deleteTemplate,
   postDue,
   setTemplateActive,
   updateTemplate,
   type PostRequest,
+  type SuggestionPick,
   type RecurringTemplateInput,
 } from "@/db/repositories/recurring";
 import { isCadence } from "@/domain/recurring";
@@ -209,4 +211,35 @@ export async function postDueAction(formData: FormData) {
       unlinked: String(unlinked),
     }),
   );
+}
+
+/** Fields: `pick` = suggestion key per ticked row; `note:<key>`, `amount:<key>`, `category:<key>` per row. */
+export async function createSuggestedTemplatesAction(formData: FormData) {
+  const picks: SuggestionPick[] = [];
+  for (const raw of formData.getAll("pick")) {
+    const key = String(raw);
+    const note = String(formData.get(`note:${key}`) ?? "").trim();
+    const amount = parseMoneyToCents(String(formData.get(`amount:${key}`) ?? "").trim());
+    const categoryId = readOptionalId(String(formData.get(`category:${key}`) ?? "").trim());
+    if (note === "") redirect(recurringPath({ error: "Every selected suggestion needs a description." }));
+    if (!amount.ok || amount.cents <= 0) {
+      redirect(recurringPath({ error: "Enter an amount greater than zero for every selected suggestion." }));
+    }
+    if (categoryId === undefined) redirect(recurringPath({ error: "Choose a valid category." }));
+    picks.push({ key, note, amountCents: amount.cents, categoryId });
+  }
+  if (picks.length === 0) redirect(recurringPath({ error: "Select at least one suggestion." }));
+
+  let created;
+  try {
+    created = createTemplatesFromSuggestions(todayUtc(), picks);
+  } catch (error) {
+    redirect(
+      recurringPath({
+        error: error instanceof Error ? error.message : "Could not create the recurring entries.",
+      }),
+    );
+  }
+  revalidateRecurring();
+  redirect(recurringPath({ saved: "recurring-suggested", posted: String(created.length) }));
 }

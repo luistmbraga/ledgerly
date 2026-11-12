@@ -3,11 +3,13 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { SubmitButton } from "@/components/submit-button";
 import { listAssets } from "@/db/repositories/assets";
 import { listCategories } from "@/db/repositories/categories";
-import { listTemplates, type DueItem } from "@/db/repositories/recurring";
+import { listSuggestions, listTemplates, type DueItem } from "@/db/repositories/recurring";
+import type { RecurringSuggestion } from "@/domain/recurring-detect";
 import { nextOccurrence, type Cadence } from "@/domain/recurring";
 import { centsToDecimalInput, formatMoney } from "@/lib/money";
 import { formatIsoDate } from "../assets/labels";
 import {
+  createSuggestedTemplatesAction,
   createTemplateAction,
   deleteTemplateAction,
   postDueAction,
@@ -42,10 +44,19 @@ export function RecurringTab({
   const expenseCategories = listCategories("expense").map(option);
   const incomeCategories = listCategories("income").map(option);
   const cashAccounts = listAssets().filter((a) => a.type === "cash").map(option);
+  const suggestions = listSuggestions(today);
 
   return (
     <>
       {due.length > 0 ? <DueReview due={due} currency={currency} /> : null}
+
+      {suggestions.length > 0 ? (
+        <SuggestionsSection
+          suggestions={suggestions}
+          categories={{ expense: expenseCategories, income: incomeCategories }}
+          currency={currency}
+        />
+      ) : null}
 
       {templates.length === 0 ? (
         <p className="text-sm text-stone-700">
@@ -251,5 +262,114 @@ function DueReview({ due, currency }: { due: DueItem[]; currency: string }) {
         </div>
       </form>
     </section>
+  );
+}
+
+function SuggestionsSection({
+  suggestions,
+  categories,
+  currency,
+}: {
+  suggestions: RecurringSuggestion[];
+  categories: { expense: Array<{ id: number; name: string }>; income: Array<{ id: number; name: string }> };
+  currency: string;
+}) {
+  const input =
+    "rounded-md border border-stone-300 bg-white px-2 py-1 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700";
+  return (
+    <details className="rounded-lg border border-stone-200 p-4">
+      <summary className="cursor-pointer text-lg font-semibold">
+        Suggested from your history{" "}
+        <span className="text-sm font-normal text-stone-600">
+          ({suggestions.length} {suggestions.length === 1 ? "suggestion" : "suggestions"})
+        </span>
+      </summary>
+      <p className="mt-2 text-sm text-stone-700">
+        These payments appeared every month. Tick the ones you want as recurring entries. Each one
+        starts at its next expected date, so months already in Activity are not posted again.
+      </p>
+      <form action={createSuggestedTemplatesAction} className="mt-4">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-stone-200 text-stone-600">
+              <tr>
+                <th className="py-2 pr-3 font-medium">Create</th>
+                <th className="py-2 pr-3 font-medium">Description</th>
+                <th className="py-2 pr-3 font-medium">Amount ({currency})</th>
+                <th className="py-2 pr-3 font-medium">Category</th>
+                <th className="py-2 pr-3 font-medium">Next</th>
+                <th className="py-2 font-medium">Seen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {suggestions.map((s) => {
+                const id = `suggest-${s.key}`;
+                return (
+                  <tr key={s.key} className="border-b border-stone-100 align-top">
+                    <td className="py-2 pr-3">
+                      <input
+                        id={id}
+                        type="checkbox"
+                        name="pick"
+                        value={s.key}
+                        aria-label={`Create a recurring entry for ${s.note}`}
+                        className="accent-teal-800"
+                      />
+                    </td>
+                    <td className="py-2 pr-3">
+                      <input
+                        name={`note:${s.key}`}
+                        defaultValue={s.note}
+                        maxLength={500}
+                        aria-label={`Description for ${s.note}`}
+                        className={`${input} w-full min-w-48`}
+                      />
+                      <span className="mt-1 block text-xs text-stone-600">
+                        {s.kind === "expense" ? "Expense" : "Income"} · monthly
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3">
+                      <input
+                        name={`amount:${s.key}`}
+                        defaultValue={centsToDecimalInput(s.amountCents)}
+                        inputMode="decimal"
+                        aria-label={`Amount for ${s.note}`}
+                        className={`${input} w-24 tabular-nums`}
+                      />
+                      {s.amountVaries ? <span className="mt-1 block text-xs text-stone-600">varies</span> : null}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <select
+                        name={`category:${s.key}`}
+                        defaultValue={s.categoryId === null ? "" : String(s.categoryId)}
+                        aria-label={`Category for ${s.note}`}
+                        className={input}
+                      >
+                        <option value="">Uncategorized</option>
+                        {categories[s.kind].map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-3">{formatIsoDate(s.anchorOn)}</td>
+                    <td className="py-2 text-xs text-stone-700">
+                      {s.occurrences.length}×:{" "}
+                      {s.occurrences
+                        .map((o) => `${formatIsoDate(o.occurredOn)} ${formatMoney(o.amountCents, currency)}`)
+                        .join(" · ")}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-4">
+          <SubmitButton>Create selected templates</SubmitButton>
+        </div>
+      </form>
+    </details>
   );
 }

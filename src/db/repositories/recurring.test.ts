@@ -25,8 +25,11 @@ const {
   listDue,
   postDue,
   setTemplateActive,
+  listSuggestions,
+  createTemplatesFromSuggestions,
+  listTemplates,
 } = await import("./recurring");
-const { listExpenses } = await import("./expenses");
+const { listExpenses, createExpense } = await import("./expenses");
 const { listIncomes } = await import("./incomes");
 const { createAsset } = await import("./assets");
 const { addAssetSnapshot, listSnapshotsForAsset } = await import("./snapshots");
@@ -212,5 +215,73 @@ describe("backup round-trip", () => {
       delete row.recurringPeriod;
     }
     expect(importDatabase(backup)).toEqual({ ok: true });
+  });
+});
+
+describe("suggestions from history", () => {
+  function seedHistory() {
+    const utilities = createCategory({ name: "Utilities", kind: "expense", isEssential: true });
+    for (const [occurredOn, amountCents] of [
+      ["2026-08-27", 4_520],
+      ["2026-09-28", 4_389],
+      ["2026-10-27", 4_292],
+    ] as const) {
+      createExpense({ amountCents, occurredOn, categoryId: utilities.id, assetId: null, note: "ENDESA ENERGIA" });
+    }
+    for (const occurredOn of ["2026-08-15", "2026-09-15", "2026-10-15"]) {
+      createExpense({ amountCents: 39_559, occurredOn, categoryId: null, assetId: null, note: "COBRANCA PRESTACAO" });
+    }
+    return utilities;
+  }
+
+  it("lists monthly patterns and creates the picked ones with edits", () => {
+    const utilities = seedHistory();
+    const suggestions = listSuggestions("2026-11-12");
+    expect(suggestions.map((s) => [s.note, s.anchorOn, s.categoryId])).toEqual([
+      ["COBRANCA PRESTACAO", "2026-11-15", null],
+      ["ENDESA ENERGIA", "2026-11-27", utilities.id],
+    ]);
+
+    const endesa = suggestions[1];
+    const [created] = createTemplatesFromSuggestions("2026-11-12", [
+      { key: endesa.key, note: "Electricity", amountCents: 4_500, categoryId: utilities.id },
+    ]);
+    expect(created).toMatchObject({
+      note: "Electricity",
+      amountCents: 4_500,
+      amountVaries: true,
+      matchText: "endesa energia",
+      cadence: "monthly",
+      anchorOn: "2026-11-27",
+    });
+    expect(listSuggestions("2026-11-12").map((s) => s.note)).toEqual(["COBRANCA PRESTACAO"]);
+  });
+
+  it("never re-posts months already in the journal", () => {
+    seedHistory();
+    const keys = listSuggestions("2026-11-12").map((s) => ({ key: s.key, note: s.note, amountCents: s.amountCents, categoryId: s.categoryId }));
+    createTemplatesFromSuggestions("2026-11-12", keys);
+    expect(listDue("2026-11-12")).toEqual([]);
+    expect(listDue("2026-11-15").map((d) => [d.note, d.occurredOn])).toEqual([["COBRANCA PRESTACAO", "2026-11-15"]]);
+  });
+
+  it("rejects an out-of-date suggestion and creates nothing", () => {
+    seedHistory();
+    const [first] = listSuggestions("2026-11-12");
+    expect(() =>
+      createTemplatesFromSuggestions("2026-11-12", [
+        { key: first.key, note: first.note, amountCents: first.amountCents, categoryId: null },
+        { key: "expense|gone|0", note: "Gone", amountCents: 100, categoryId: null },
+      ]),
+    ).toThrow(/out of date/);
+    expect(listTemplates()).toHaveLength(0);
+  });
+
+  it("ignores rows that a template posted", () => {
+    const t = template({ note: "Rent", anchorOn: "2026-08-01" });
+    postAll("2026-11-12");
+    expect(listExpenses().filter((r) => r.recurringTemplateId === t.id)).toHaveLength(4);
+    testDb.update(schema.recurringTemplates).set({ note: "Housing payment" }).run();
+    expect(listSuggestions("2026-11-12")).toEqual([]);
   });
 });

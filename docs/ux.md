@@ -93,6 +93,7 @@ Tab **Recurring** (slice 14)
 
 - "Due to post" review list: checkbox and editable amount per due occurrence → **Post selected**
 - Template list (description, amount, repeats, next date, cash account) with edit / pause / delete
+- "Suggested from your history" (slice 17, collapsed): monthly patterns found in the journal with evidence, editable description/amount/category, unticked by default → **Create selected templates**; each starts at its next expected date
 - Other tabs show a banner "N recurring entries are due" linking here
 
 Header link **Import statement** → `/activity/import`.

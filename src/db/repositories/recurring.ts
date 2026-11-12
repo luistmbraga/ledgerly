@@ -1,11 +1,18 @@
-import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, gte, isNotNull, isNull } from "drizzle-orm";
 import {
   duePeriods,
   isCadence,
   type Cadence,
   type RecurringSchedule,
 } from "@/domain/recurring";
-import { isValidIsoDate } from "@/lib/dates";
+import {
+  LOOKBACK_MONTHS,
+  detectRecurring,
+  type DetectionRow,
+  type DetectionTemplate,
+  type RecurringSuggestion,
+} from "@/domain/recurring-detect";
+import { addMonths, isValidIsoDate } from "@/lib/dates";
 import { db } from "../client";
 import {
   assets,
@@ -343,4 +350,70 @@ export function postDue(asOfDate: string, requests: PostRequest[]): PostDueResul
     }
     return { posted: results, skipped };
   });
+}
+
+/** Monthly patterns in the journal that no template covers yet. */
+export function listSuggestions(asOfDate: string): RecurringSuggestion[] {
+  const from = addMonths(asOfDate, -LOOKBACK_MONTHS);
+  const rows: DetectionRow[] = [];
+  for (const [kind, table] of [
+    ["expense", expenses],
+    ["income", incomes],
+  ] as const) {
+    const found = db
+      .select({
+        occurredOn: table.occurredOn,
+        amountCents: table.amountCents,
+        note: table.note,
+        categoryId: table.categoryId,
+      })
+      .from(table)
+      .where(and(isNull(table.recurringTemplateId), gte(table.occurredOn, from)))
+      .all();
+    for (const row of found) rows.push({ kind, ...row });
+  }
+  const templates = db
+    .select({ kind: recurringTemplates.kind, matchText: recurringTemplates.matchText, note: recurringTemplates.note })
+    .from(recurringTemplates)
+    .all()
+    .flatMap(({ kind, matchText, note }): DetectionTemplate[] =>
+      kind === "expense" || kind === "income" ? [{ kind, matchText, note }] : [],
+    );
+  return detectRecurring({ rows, templates, asOf: asOfDate });
+}
+
+export type SuggestionPick = {
+  key: string;
+  note: string;
+  amountCents: number;
+  categoryId: number | null;
+};
+
+const MATCH_TEXT_MAX = 100;
+
+/**
+ * Creates templates for the picked suggestions in one transaction. Suggestions are
+ * re-detected here, so the schedule and match text never come from the browser.
+ */
+export function createTemplatesFromSuggestions(asOfDate: string, picks: SuggestionPick[]): RecurringTemplate[] {
+  if (picks.length === 0) invalid("Select at least one suggestion.");
+  const current = new Map(listSuggestions(asOfDate).map((s) => [s.key, s]));
+  return db.transaction(() =>
+    picks.map((pick) => {
+      const suggestion = current.get(pick.key);
+      if (!suggestion) invalid("This suggestion is out of date. Reload and try again.");
+      return createTemplate({
+        kind: suggestion.kind,
+        amountCents: pick.amountCents,
+        amountVaries: suggestion.amountVaries,
+        categoryId: pick.categoryId,
+        assetId: null,
+        note: pick.note,
+        matchText: suggestion.matchText.slice(0, MATCH_TEXT_MAX),
+        cadence: "monthly",
+        anchorOn: suggestion.anchorOn,
+        endOn: null,
+      });
+    }),
+  );
 }
