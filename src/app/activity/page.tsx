@@ -110,7 +110,15 @@ export default async function ActivityPage({
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
       <header className="border-b border-stone-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Activity</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">Activity</h1>
+          <Link
+            href="/activity/import"
+            className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+          >
+            Import statement
+          </Link>
+        </div>
         <p className="mt-1 text-sm text-stone-600">
           Log expenses and income. Optionally link a cash account to update that
           balance with a snapshot.

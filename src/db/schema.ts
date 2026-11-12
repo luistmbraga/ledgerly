@@ -148,6 +148,31 @@ export const recurringTemplates = sqliteTable(
   ],
 );
 
+export const importBatches = sqliteTable(
+  "import_batches",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    source: text("source").notNull(),
+    parserId: text("parser_id").notNull(),
+    fileName: text("file_name").notNull(),
+    fileSha256: text("file_sha256").notNull(),
+    periodFrom: text("period_from"),
+    periodTo: text("period_to"),
+    closingBalanceCents: integer("closing_balance_cents"),
+    assetId: integer("asset_id").references(() => assets.id, { onDelete: "set null" }),
+    linkMode: text("link_mode").notNull(),
+    closingSnapshotId: integer("closing_snapshot_id").references(() => valueSnapshots.id, {
+      onDelete: "set null",
+    }),
+    rowCount: integer("row_count").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("import_batches_file_sha256_idx").on(table.fileSha256),
+    check("import_batches_link_mode_ck", sql`\`link_mode\` IN ('none', 'closing', 'per_row')`),
+  ],
+);
+
 export const expenses = sqliteTable(
   "expenses",
   {
@@ -167,6 +192,10 @@ export const expenses = sqliteTable(
       { onDelete: "set null" },
     ),
     recurringPeriod: text("recurring_period"),
+    importBatchId: integer("import_batch_id").references(() => importBatches.id, {
+      onDelete: "set null",
+    }),
+    importFingerprint: text("import_fingerprint"),
     note: text("note"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -175,6 +204,7 @@ export const expenses = sqliteTable(
     index("expenses_occurred_on_idx").on(table.occurredOn),
     index("expenses_category_id_idx").on(table.categoryId),
     index("expenses_asset_id_idx").on(table.assetId),
+    index("expenses_import_fingerprint_idx").on(table.importFingerprint),
     uniqueIndex("expenses_recurring_period_idx").on(
       table.recurringTemplateId,
       table.recurringPeriod,
@@ -201,6 +231,10 @@ export const incomes = sqliteTable(
       { onDelete: "set null" },
     ),
     recurringPeriod: text("recurring_period"),
+    importBatchId: integer("import_batch_id").references(() => importBatches.id, {
+      onDelete: "set null",
+    }),
+    importFingerprint: text("import_fingerprint"),
     note: text("note"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -209,6 +243,7 @@ export const incomes = sqliteTable(
     index("incomes_occurred_on_idx").on(table.occurredOn),
     index("incomes_category_id_idx").on(table.categoryId),
     index("incomes_asset_id_idx").on(table.assetId),
+    index("incomes_import_fingerprint_idx").on(table.importFingerprint),
     uniqueIndex("incomes_recurring_period_idx").on(
       table.recurringTemplateId,
       table.recurringPeriod,
@@ -276,6 +311,7 @@ export type CategoryRow = typeof categories.$inferSelect;
 export type ExpenseRow = typeof expenses.$inferSelect;
 export type IncomeRow = typeof incomes.$inferSelect;
 export type RecurringTemplateRow = typeof recurringTemplates.$inferSelect;
+export type ImportBatchRow = typeof importBatches.$inferSelect;
 export type GoalRow = typeof goals.$inferSelect;
 export type PersonalityAnswerRow = typeof personalityAnswers.$inferSelect;
 export type InvestorProfileRow = typeof investorProfiles.$inferSelect;

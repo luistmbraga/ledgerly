@@ -115,11 +115,15 @@ Seed defaults on first run (slice 03): see slice file.
 | category_id | integer nullable FK | |
 | asset_id | integer nullable FK → assets.id | cash assets only; `on delete set null` |
 | linked_snapshot_id | integer nullable FK → value_snapshots.id | snapshot from cash link; `on delete set null` |
+| recurring_template_id | integer nullable FK → recurring_templates.id | set when posted from a template (slice 14); `on delete set null` |
+| recurring_period | text nullable | `YYYY-MM`, `YYYY` or `YYYY-Www`; unique with `recurring_template_id` |
+| import_batch_id | integer nullable FK → import_batches.id | set when imported from a statement (slice 15); `on delete set null` |
+| import_fingerprint | text nullable | `date|amount|kind|normalized description|n`; used to detect re-imports |
 | note | text nullable | |
 | created_at | text | |
 | updated_at | text | |
 
-Index: `(occurred_on)`, `(category_id)`, `(asset_id)`.
+Index: `(occurred_on)`, `(category_id)`, `(asset_id)`, `(import_fingerprint)`; unique `(recurring_template_id, recurring_period)`.
 
 ---
 
@@ -133,11 +137,57 @@ Index: `(occurred_on)`, `(category_id)`, `(asset_id)`.
 | category_id | integer nullable FK | |
 | asset_id | integer nullable FK → assets.id | cash assets only; `on delete set null` |
 | linked_snapshot_id | integer nullable FK → value_snapshots.id | snapshot from cash link; `on delete set null` |
+| recurring_template_id | integer nullable FK → recurring_templates.id | set when posted from a template (slice 14); `on delete set null` |
+| recurring_period | text nullable | `YYYY-MM`, `YYYY` or `YYYY-Www`; unique with `recurring_template_id` |
+| import_batch_id | integer nullable FK → import_batches.id | set when imported from a statement (slice 15); `on delete set null` |
+| import_fingerprint | text nullable | `date|amount|kind|normalized description|n`; used to detect re-imports |
 | note | text nullable | |
 | created_at | text | |
 | updated_at | text | |
 
-Index: `(occurred_on)`, `(category_id)`, `(asset_id)`.
+Index: `(occurred_on)`, `(category_id)`, `(asset_id)`, `(import_fingerprint)`; unique `(recurring_template_id, recurring_period)`.
+
+---
+
+## Table: `recurring_templates` (slice 14)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | integer PK | |
+| kind | text | `expense` \| `income` |
+| amount_cents | integer | > 0; expected amount, editable per posting |
+| amount_varies | boolean | review list focuses the amount |
+| match_text | text nullable | text on bank statements; import dedupe (slice 15) |
+| category_id | integer nullable FK | kind must match; `on delete set null` |
+| asset_id | integer nullable FK → assets.id | cash account; `on delete set null` |
+| link_cash | boolean | true when `asset_id` is set |
+| note | text | description shown in lists and copied to posted rows |
+| cadence | text | `monthly` \| `yearly` \| `weekly` |
+| anchor_on | text | first occurrence; month-end clamps |
+| end_on | text nullable | |
+| active | boolean | paused templates post nothing |
+| created_at, updated_at | text | |
+
+---
+
+## Table: `import_batches` (slice 15)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | integer PK | |
+| source | text | `pdf` |
+| parser_id | text | e.g. `cgd-movimentos` |
+| file_name | text | the file itself is never stored |
+| file_sha256 | text | warns on re-upload of the same file |
+| period_from, period_to | text nullable | statement period |
+| closing_balance_cents | integer nullable | from the statement header |
+| asset_id | integer nullable FK → assets.id | `on delete set null` |
+| link_mode | text | `none` \| `closing` \| `per_row` |
+| closing_snapshot_id | integer nullable FK → value_snapshots.id | snapshot written in `closing` mode; `on delete set null` |
+| row_count | integer | |
+| created_at | text | |
+
+Undo deletes the batch's journal rows (reversing cash links newest first), its closing snapshot, then the batch. It is refused if a linked row is frozen.
 
 ---
 

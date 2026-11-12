@@ -16,6 +16,14 @@ import { isValidIsoDate } from "./snapshots";
 
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+/** Provenance stored on a journal row besides its cash link. */
+export type JournalLinks = {
+  recurringTemplateId?: number;
+  recurringPeriod?: string;
+  importBatchId?: number;
+  importFingerprint?: string;
+};
+
 function invalid(message: string): never {
   const error = new Error(message);
   error.name = "ValidationError";

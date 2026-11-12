@@ -89,7 +89,27 @@ Tab **Income**
 
 - Same pattern with income categories and optional cash account
 
+Tab **Recurring** (slice 14)
+
+- "Due to post" review list: checkbox and editable amount per due occurrence → **Post selected**
+- Template list (description, amount, repeats, next date, cash account) with edit / pause / delete
+- Other tabs show a banner "N recurring entries are due" linking here
+
+Header link **Import statement** → `/activity/import`.
+
 **Empty tabs:** Short explanation + add button.
+
+---
+
+## Import statement `/activity/import` (slice 15)
+
+- Upload a PDF (CGD "Consultar saldos e movimentos"), optional cash account, and how to update its balance: closing balance (default), after every row, or not at all
+- Preview: reconciliation note, balance note, totals, then every row with include checkbox, date, editable note, amount, category, and a check column for flags/issues
+- Flagged rows (already imported, recurring, possible duplicate, own transfer, cancels out) start unticked; rows with issues cannot be selected
+- **Import N rows** writes everything in one go or nothing; errors name the row
+- Recent imports list with **Undo**
+
+**Errors:** unsupported format, scanned PDF, password-protected PDF, file over 5 MB, non-EUR statement — each as a plain message above the upload button.
 
 ---
 

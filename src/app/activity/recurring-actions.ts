@@ -45,6 +45,7 @@ const FIELDS = [
   "categoryId",
   "assetId",
   "note",
+  "matchText",
 ] as const;
 
 function extractValues(formData: FormData): Record<string, string> {
@@ -81,6 +82,10 @@ function validateTemplate(values: Record<string, string>): {
   if (values.note === "") errors.note = "Enter a description, for example \"Rent\".";
   else if (values.note.length > 500) errors.note = "Description must be 500 characters or fewer.";
 
+  if (values.matchText.length > 100) {
+    errors.matchText = "Bank description must be 100 characters or fewer.";
+  }
+
   if (Object.keys(errors).length > 0) return { errors };
 
   return {
@@ -95,6 +100,7 @@ function validateTemplate(values: Record<string, string>): {
       categoryId: categoryId ?? null,
       assetId: assetId ?? null,
       note: values.note,
+      matchText: values.matchText === "" ? null : values.matchText,
     },
   };
 }

@@ -9,6 +9,7 @@ import {
   incomes,
   goals,
   personalityAnswers,
+  importBatches,
   investorProfiles,
   recurringTemplates,
   settings,
@@ -81,6 +82,8 @@ const ExpenseSchema = z.object({
   linkedSnapshotId: z.number().int().nullable(),
   recurringTemplateId: z.number().int().nullable().default(null),
   recurringPeriod: z.string().nullable().default(null),
+  importBatchId: z.number().int().nullable().default(null),
+  importFingerprint: z.string().nullable().default(null),
   note: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -95,6 +98,8 @@ const IncomeSchema = z.object({
   linkedSnapshotId: z.number().int().nullable(),
   recurringTemplateId: z.number().int().nullable().default(null),
   recurringPeriod: z.string().nullable().default(null),
+  importBatchId: z.number().int().nullable().default(null),
+  importFingerprint: z.string().nullable().default(null),
   note: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -116,6 +121,22 @@ const RecurringTemplateSchema = z.object({
   active: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
+});
+
+const ImportBatchSchema = z.object({
+  id: z.number().int(),
+  source: z.string(),
+  parserId: z.string(),
+  fileName: z.string(),
+  fileSha256: z.string(),
+  periodFrom: z.string().nullable(),
+  periodTo: z.string().nullable(),
+  closingBalanceCents: z.number().int().nullable(),
+  assetId: z.number().int().nullable(),
+  linkMode: z.enum(["none", "closing", "per_row"]),
+  closingSnapshotId: z.number().int().nullable(),
+  rowCount: z.number().int(),
+  createdAt: z.string(),
 });
 
 const GoalSchema = z.object({
@@ -156,6 +177,7 @@ export const BackupSchema = z.object({
   value_snapshots: z.array(ValueSnapshotSchema),
   categories: z.array(CategorySchema),
   recurring_templates: z.array(RecurringTemplateSchema).default([]),
+  import_batches: z.array(ImportBatchSchema).default([]),
   expenses: z.array(ExpenseSchema),
   incomes: z.array(IncomeSchema),
   goals: z.array(GoalSchema),
@@ -183,6 +205,11 @@ export function exportDatabase(): BackupData {
       .from(recurringTemplates)
       .all()
       .map((row) => RecurringTemplateSchema.parse(row)),
+    import_batches: db
+      .select()
+      .from(importBatches)
+      .all()
+      .map((row) => ImportBatchSchema.parse(row)),
     expenses: db.select().from(expenses).all(),
     incomes: db.select().from(incomes).all(),
     goals: db.select().from(goals).all(),
@@ -217,6 +244,7 @@ export function importDatabase(raw: unknown): ImportResult {
       tx.delete(expenses).run();
       tx.delete(incomes).run();
       tx.delete(recurringTemplates).run();
+      tx.delete(importBatches).run();
       tx.delete(valueSnapshots).run();
       tx.delete(categories).run();
       tx.delete(goals).run();
@@ -249,6 +277,9 @@ export function importDatabase(raw: unknown): ImportResult {
       if (data.liabilities.length > 0) tx.insert(liabilities).values(data.liabilities).run();
       if (data.categories.length > 0) tx.insert(categories).values(data.categories).run();
       if (data.value_snapshots.length > 0) tx.insert(valueSnapshots).values(data.value_snapshots).run();
+      if (data.import_batches.length > 0) {
+        tx.insert(importBatches).values(data.import_batches).run();
+      }
       if (data.recurring_templates.length > 0) {
         tx.insert(recurringTemplates).values(data.recurring_templates).run();
       }

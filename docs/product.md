@@ -9,7 +9,7 @@ It is a **personal tool**, not a regulated advisory product.
 ## Target user
 
 - One individual managing their own finances.
-- Enters balances and transactions manually.
+- Enters balances and transactions manually, or imports a downloaded bank statement after previewing every row.
 - Uses a desktop browser first; mobile browser is acceptable.
 
 ## Goals (user outcomes)
@@ -25,7 +25,7 @@ It is a **personal tool**, not a regulated advisory product.
 ## Non-goals (v1)
 
 - Multi-user accounts, sharing, or cloud sync as a product feature.
-- Bank, card, or brokerage aggregation.
+- Bank, card, or brokerage aggregation (connecting to bank APIs or syncing automatically). Uploading a statement file and confirming its rows is allowed (slice 15).
 - Multi-currency portfolios with live FX.
 - Double-entry bookkeeping or forced reconciliation between journal and balance snapshots.
 - Tax filing, withholding, or jurisdiction-specific legal advice.

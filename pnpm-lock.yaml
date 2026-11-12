@@ -23,6 +23,9 @@ importers:
       react-dom:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
+      unpdf:
+        specifier: ^2.1.0
+        version: 2.1.0
       zod:
         specifier: '3'
         version: 3.25.76
@@ -2970,6 +2973,15 @@ packages:
 
   undici-types@8.9.0:
     resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
+
+  unpdf@2.1.0:
+    resolution: {integrity: sha512-G/Hsrm++g0EoubUhV8TDFItq6oQ+FUu9EMvIRtHUwseKXB0iJoCvaLvBGOpYUBqyvggv/XfxhYYtohL2QpE3xQ==}
+    engines: {node: '>=24'}
+    peerDependencies:
+      '@napi-rs/canvas': ^0.1.69 || ^1.0.0
+    peerDependenciesMeta:
+      '@napi-rs/canvas':
+        optional: true
 
   unrs-resolver@1.13.0:
     resolution: {integrity: sha512-mcPQo9Vm6kXd84d/WqMiYBi2CcA57QHBX/ev5PoUEb8b2oQzUvJ6xYsfseQblnCncgnVmCZGWiFwK7KkS5JZJA==}
@@ -5973,6 +5985,8 @@ snapshots:
       which-boxed-primitive: 1.1.1
 
   undici-types@8.9.0: {}
+
+  unpdf@2.1.0: {}
 
   unrs-resolver@1.13.0:
     dependencies:

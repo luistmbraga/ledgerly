@@ -1,11 +1,11 @@
 import { desc, eq } from "drizzle-orm";
-import type { RecurringLink } from "@/domain/recurring";
 import { isValidIsoDate } from "./snapshots";
 import { getCategory } from "./categories";
 import {
   createCashLink,
   deleteCashLink,
   updateCashLink,
+  type JournalLinks,
   type Tx,
 } from "./cash-link";
 import { db } from "../client";
@@ -62,6 +62,8 @@ export function listIncomes(): IncomeWithCategory[] {
       linkedSnapshotId: incomes.linkedSnapshotId,
       recurringTemplateId: incomes.recurringTemplateId,
       recurringPeriod: incomes.recurringPeriod,
+      importBatchId: incomes.importBatchId,
+      importFingerprint: incomes.importFingerprint,
       note: incomes.note,
       createdAt: incomes.createdAt,
       updatedAt: incomes.updatedAt,
@@ -83,7 +85,7 @@ export function getIncome(id: number): IncomeRecord | undefined {
 export function insertIncome(
   tx: Tx,
   input: IncomeInput,
-  recurring?: RecurringLink,
+  links: JournalLinks = {},
 ): IncomeRecord {
   const value = assertIncomeInput(input);
   const now = new Date().toISOString();
@@ -101,8 +103,10 @@ export function insertIncome(
       categoryId: value.categoryId,
       assetId: link.assetId,
       linkedSnapshotId: link.linkedSnapshotId,
-      recurringTemplateId: recurring?.templateId ?? null,
-      recurringPeriod: recurring?.period ?? null,
+      recurringTemplateId: links.recurringTemplateId ?? null,
+      recurringPeriod: links.recurringPeriod ?? null,
+      importBatchId: links.importBatchId ?? null,
+      importFingerprint: links.importFingerprint ?? null,
       note: value.note,
       createdAt: now,
       updatedAt: now,

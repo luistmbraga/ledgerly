@@ -150,6 +150,7 @@ export function RecurringTab({
                     categoryId: editing.categoryId,
                     assetId: editing.assetId,
                     note: editing.note ?? "",
+                    matchText: editing.matchText ?? "",
                   }
                 : {
                     kind: "expense",
@@ -161,6 +162,7 @@ export function RecurringTab({
                     categoryId: null,
                     assetId: null,
                     note: "",
+                    matchText: "",
                   }
             }
           />

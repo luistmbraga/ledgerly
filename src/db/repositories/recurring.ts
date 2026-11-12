@@ -41,6 +41,7 @@ export type RecurringTemplateInput = {
   categoryId: number | null;
   assetId: number | null;
   note: string;
+  matchText: string | null;
   cadence: Cadence;
   anchorOn: string;
   endOn: string | null;
@@ -108,6 +109,10 @@ function assertTemplateInput(input: RecurringTemplateInput): RecurringTemplateIn
   const note = input.note.trim();
   if (note.length === 0) invalid("Enter a description.");
   if (note.length > 500) invalid("Description must be 500 characters or fewer.");
+  const matchText = input.matchText?.trim() || null;
+  if (matchText !== null && matchText.length > 100) {
+    invalid("Bank description must be 100 characters or fewer.");
+  }
   if (input.categoryId !== null) {
     const category = getCategory(input.categoryId);
     if (!category || category.kind !== input.kind) {
@@ -118,7 +123,7 @@ function assertTemplateInput(input: RecurringTemplateInput): RecurringTemplateIn
     const asset = db.select().from(assets).where(eq(assets.id, input.assetId)).get();
     if (!asset || asset.type !== "cash") invalid("Choose a cash account.");
   }
-  return { ...input, note };
+  return { ...input, note, matchText };
 }
 
 function rowValues(input: RecurringTemplateInput) {
@@ -130,6 +135,7 @@ function rowValues(input: RecurringTemplateInput) {
     assetId: input.assetId,
     linkCash: input.assetId !== null,
     note: input.note,
+    matchText: input.matchText,
     cadence: input.cadence,
     anchorOn: input.anchorOn,
     endOn: input.endOn,
@@ -323,7 +329,7 @@ export function postDue(asOfDate: string, requests: PostRequest[]): PostDueResul
         assetId,
         note: template.note,
       };
-      const link = { templateId: template.id, period: item.period };
+      const link = { recurringTemplateId: template.id, recurringPeriod: item.period };
       if (template.kind === "expense") insertExpense(tx, input, link);
       else insertIncome(tx, input, link);
       results.push({

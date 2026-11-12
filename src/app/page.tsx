@@ -437,6 +437,12 @@ function QuickActions() {
           Add expense
         </Link>
         <Link
+          href="/activity/import"
+          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
+        >
+          Import statement
+        </Link>
+        <Link
           href="/goals#add"
           className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2"
         >

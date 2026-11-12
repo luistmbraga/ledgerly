@@ -17,6 +17,7 @@ export type RecurringFormDefaults = {
   categoryId: number | null;
   assetId: number | null;
   note: string;
+  matchText: string;
 };
 
 type RecurringFormProps = {
@@ -248,6 +249,32 @@ export function RecurringForm({
           <p id={`${id("assetId")}-hint`} className="text-xs text-stone-600">
             Optional. Each posted entry updates this balance with a snapshot. Entries
             dated before the latest balance are posted without the link.
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor={id("matchText")} className="text-sm font-medium text-stone-800">
+          Bank description contains <span className="font-normal text-stone-600">(optional)</span>
+        </label>
+        <input
+          id={id("matchText")}
+          name="matchText"
+          type="text"
+          maxLength={100}
+          autoComplete="off"
+          placeholder="ENDESA"
+          defaultValue={value("matchText", defaults.matchText)}
+          aria-invalid={!!e.matchText}
+          aria-describedby={e.matchText ? `${id("matchText")}-error` : `${id("matchText")}-hint`}
+          className={FIELD_CN}
+        />
+        {e.matchText ? (
+          <FieldError id={`${id("matchText")}-error`} message={e.matchText} />
+        ) : (
+          <p id={`${id("matchText")}-hint`} className="text-xs text-stone-600">
+            Text that appears on your bank statement for this entry. Statement imports use it to
+            spot rows this template already posted, even when the amount differs.
           </p>
         )}
       </div>

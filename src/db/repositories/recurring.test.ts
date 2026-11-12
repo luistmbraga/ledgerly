@@ -43,6 +43,7 @@ function template(overrides: Partial<TemplateInput> = {}) {
     categoryId: null,
     assetId: null,
     note: "Rent",
+    matchText: null,
     cadence: "monthly",
     anchorOn: "2026-01-31",
     endOn: null,

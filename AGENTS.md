@@ -15,7 +15,7 @@ You are implementing **Ledgerly**, a single-user personal finance web app. Produ
 |------|---------|
 | Single user | No signup, login, roles, or tenant IDs. |
 | Localhost | Bind dev server to localhost; docs assume no public deployment. |
-| Manual data | No bank/broker APIs, CSV import, or automatic balance sync unless a slice adds it. |
+| Manual data | No bank/broker APIs, CSV import, or automatic balance sync unless a slice adds it. Slice 15 adds user-uploaded statement import with preview → confirm only; never auto-sync. |
 | Net worth | Latest **value snapshot** per asset/liability is current value. Journal entries do not auto-adjust balances. |
 | No double-entry | v1 does not reconcile cashflow journal to balance changes. |
 | Money | Store amounts as **integer cents** in one **display currency** from settings (default EUR). No FX. |

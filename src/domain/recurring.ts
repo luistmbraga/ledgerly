@@ -14,8 +14,6 @@ export type RecurringSchedule = {
 
 export type DueOccurrence = { period: string; occurredOn: string };
 
-export type RecurringLink = { templateId: number; period: string };
-
 export function isCadence(value: string): value is Cadence {
   return (CADENCES as readonly string[]).includes(value);
 }
