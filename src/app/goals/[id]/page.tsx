@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import type { GoalFeasibility } from "@/domain/goals";
+import { computeGoalFeasibility, type GoalFeasibility } from "@/domain/goals";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { Flash } from "@/components/flash";
 import { getGoal } from "@/db/repositories/goals";
@@ -58,6 +58,17 @@ export default async function GoalDetailPage({
       expectedAnnualReturnBps: goal.expectedAnnualReturnBps,
     },
   };
+  const growth =
+    goal.expectedAnnualReturnBps === null
+      ? null
+      : {
+          bps: goal.expectedAnnualReturnBps,
+          flatMonthlyCents: computeGoalFeasibility(
+            { ...goal, expectedAnnualReturnBps: null },
+            todayUtc(),
+            board.avgMonthlySurplusCents,
+          ).requiredMonthlyCents,
+        };
   const plannedLabel =
     goal.plannedMonthlyCents === null
       ? "Not set"
@@ -98,6 +109,11 @@ export default async function GoalDetailPage({
             {formatMoney(feasibility.remainingCents, board.currency)} remaining
             over {feasibility.monthsRemaining}{" "}
             {feasibility.monthsRemaining === 1 ? "month" : "months"}.
+          </p>
+          <p className="text-sm text-stone-700">
+            {growth === null
+              ? "Assumes your savings for this goal do not grow. If the money is invested, add a yearly growth rate when editing the goal."
+              : `Assumes ${bpsToPercentInput(growth.bps)}% yearly growth. Without growth you would need ${formatMoney(growth.flatMonthlyCents, board.currency)} a month, so the assumption covers ${formatMoney(Math.max(0, growth.flatMonthlyCents - feasibility.requiredMonthlyCents), board.currency)} a month. Growth is not guaranteed.`}
           </p>
         </section>
 

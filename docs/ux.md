@@ -164,7 +164,7 @@ Read-only sandbox. Nothing on this screen is saved.
 
 **List:** name, bucket badge, target date, progress bar (set aside / target), status chip.
 
-**Add goal form:** name, target amount, target date, set aside, optional planned monthly, optional expected return %.
+**Add goal form:** name, target amount, target date, set aside, optional planned monthly, optional "Yearly growth if invested" % (blank = savings do not grow; hint explains it lowers the required monthly). Detail page states the growth assumption and, when set, the flat monthly needed without it.
 
 **Budget check (slice 23):** section between the list and the add form. Optional "What is it for?" and required "By when?" date (GET form, `?checkName=&checkDate=#budget`).
 

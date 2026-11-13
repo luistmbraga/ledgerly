@@ -90,12 +90,12 @@ function validateGoalFields(formData: FormData): {
   if (values.expectedReturn.trim() !== "") {
     if (!/^\d+(\.\d{1,2})?$/.test(values.expectedReturn)) {
       errors.expectedReturn =
-        "Enter a return from 0 to 100 with up to 2 decimal places.";
+        "Enter a yearly growth rate from 0 to 100, with up to 2 decimal places.";
     } else {
       const [whole, fraction = ""] = values.expectedReturn.split(".");
       const bps = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
       if (!Number.isSafeInteger(bps) || bps > 10_000) {
-        errors.expectedReturn = "Enter a return from 0 to 100.";
+        errors.expectedReturn = "Enter a yearly growth rate from 0 to 100.";
       } else {
         expectedAnnualReturnBps = bps;
       }

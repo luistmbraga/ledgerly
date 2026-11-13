@@ -111,32 +111,44 @@ export function GoalForm({ action, submitLabel, id, defaults }: GoalFormProps) {
           htmlFor={field("expectedReturn")}
           className="text-sm font-medium text-stone-800"
         >
-          Expected return %
+          Yearly growth if invested{" "}
+          <span className="font-normal text-stone-500">(optional)</span>
         </label>
-        <input
-          id={field("expectedReturn")}
-          name="expectedReturn"
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          placeholder="0"
-          defaultValue={defaults?.expectedReturnPercent ?? ""}
-          aria-invalid={!!e.expectedReturn}
-          aria-describedby={
-            e.expectedReturn
-              ? `${field("expectedReturn")}-error`
-              : `${field("expectedReturn")}-hint`
-          }
-          className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700 aria-invalid:border-red-400"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            id={field("expectedReturn")}
+            name="expectedReturn"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="e.g. 4"
+            defaultValue={defaults?.expectedReturnPercent ?? ""}
+            aria-invalid={!!e.expectedReturn}
+            aria-describedby={
+              e.expectedReturn
+                ? `${field("expectedReturn")}-error`
+                : `${field("expectedReturn")}-hint`
+            }
+            className="w-32 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-teal-700 aria-invalid:border-red-400"
+          />
+          <span className="text-sm text-stone-600">% per year</span>
+        </div>
         {e.expectedReturn ? (
           <p id={`${field("expectedReturn")}-error`} role="alert" className="text-sm text-red-700">
             {e.expectedReturn}
           </p>
         ) : (
-          <p id={`${field("expectedReturn")}-hint`} className="text-sm text-stone-600">
-            Optional annual percent. A planning assumption, not a guaranteed return.
-          </p>
+          <div id={`${field("expectedReturn")}-hint`} className="flex flex-col gap-1 text-sm text-stone-600">
+            <p>
+              Fill this in only if the money for this goal is invested, for example in an
+              index fund. Growth then covers part of the target, so the required monthly
+              amount goes down.
+            </p>
+            <p>
+              Leave blank for cash or a savings account. The goal then assumes your
+              savings do not grow. This is an assumption, not a guaranteed return.
+            </p>
+          </div>
         )}
       </div>
 
